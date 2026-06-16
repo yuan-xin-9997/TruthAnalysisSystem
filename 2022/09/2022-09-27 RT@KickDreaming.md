@@ -1,0 +1,21 @@
+# RT@KickDreaming
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Tuesday, September 27, 2022, 11:46 pm EDT
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/109073974309949939](https://truthsocial.com/@realDonaldTrump/109073974309949939)
+- **TRUTH Social status ID**: `109073974309949939`
+- **来源**: [https://trumpstruth.org/statuses/20435](https://trumpstruth.org/statuses/20435)
+
+---
+
+## 内容
+
+
+
+---
+
+## 附件
+
+![A man in a suit and red tie sits in an ornate chair in front of a curtain, a U.S. flag, and a sculpture of a horse and rider. White text over the image reads, "NOTHING CAN STOP WHAT IS COMING. NOTHING."](https://truth-archive.us-iad-1.linodeobjects.com/attachments/8104/ae0a03f1798b9c10.jpg)
+[下载图片](https://truth-archive.us-iad-1.linodeobjects.com/attachments/8104/ae0a03f1798b9c10.jpg)
+

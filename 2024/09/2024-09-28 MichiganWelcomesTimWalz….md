@@ -1,0 +1,20 @@
+# MichiganWelcomesTimWalz…
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Saturday, September 28, 2024, 07:51 pm EDT
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/113217861495359390](https://truthsocial.com/@realDonaldTrump/113217861495359390)
+- **TRUTH Social status ID**: `113217861495359390`
+- **来源**: [https://trumpstruth.org/statuses/26761](https://trumpstruth.org/statuses/26761)
+
+---
+
+## 内容
+
+Michigan Welcomes Tim Walz…
+
+
+---
+
+## 附件
+
+- **视频链接**: [下载/播放视频 (MP4)](https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/113/217/861/422/778/542/original/63b42f6f583b7d5c.mp4)

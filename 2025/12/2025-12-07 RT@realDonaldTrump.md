@@ -1,0 +1,21 @@
+# RT@realDonaldTrump
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Sunday, December 7, 2025, 10:11 am EST
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/115678922837159470](https://truthsocial.com/@realDonaldTrump/115678922837159470)
+- **TRUTH Social status ID**: `115678922837159470`
+- **来源**: [https://trumpstruth.org/statuses/34185](https://trumpstruth.org/statuses/34185)
+
+---
+
+## 内容
+
+
+
+---
+
+## 附件
+
+![A formal letter dated November 12, 2025, addressed to President Donald J. Trump at the White House, 1600 Pennsylvania Avenue NW, Washington, DC. The subject is a request for compassion and clemency for Henry and Imelda Cuellar, written by their two daughters. It expresses gratitude for presidential service and explains the difficult situation faced by the family, highlighting the parents’ faithfulness, resilience, and lifetime of service to the community. The letter details their contributions and the ethical guidance sought by their father, underscoring the hardship endured by the family.](https://truth-archive.us-iad-1.linodeobjects.com/attachments/13646/52854ff604523ce4.jpg)
+[下载图片](https://truth-archive.us-iad-1.linodeobjects.com/attachments/13646/52854ff604523ce4.jpg)
+

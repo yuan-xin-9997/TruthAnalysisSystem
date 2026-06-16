@@ -1,0 +1,22 @@
+# RT@CrazyCatRescuer#WeAreCharIieKirk#XTeam#MH8
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Monday, November 17, 2025, 09:36 am EST
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/115565538219866607](https://truthsocial.com/@realDonaldTrump/115565538219866607)
+- **TRUTH Social status ID**: `115565538219866607`
+- **来源**: [https://trumpstruth.org/statuses/33875](https://trumpstruth.org/statuses/33875)
+
+---
+
+## 内容
+
+#WeAreCharIieKirk #XTeam #MH8
+
+
+---
+
+## 附件
+
+![A man looking through binoculars with the text "WHO IS NEXT?" alongside three other people in a collage arrangement. A green checkmark is overlaid on one person's image. The handle @CrazyCatRescuer is included in the collage.](https://truth-archive.us-iad-1.linodeobjects.com/attachments/13528/6ec430373efa2d42.jpg)
+[下载图片](https://truth-archive.us-iad-1.linodeobjects.com/attachments/13528/6ec430373efa2d42.jpg)
+

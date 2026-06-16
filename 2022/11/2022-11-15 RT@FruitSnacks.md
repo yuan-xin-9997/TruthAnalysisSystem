@@ -1,0 +1,21 @@
+# RT@FruitSnacks
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Tuesday, November 15, 2022, 12:36 am EST
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/109346198955638927](https://truthsocial.com/@realDonaldTrump/109346198955638927)
+- **TRUTH Social status ID**: `109346198955638927`
+- **来源**: [https://trumpstruth.org/statuses/19193](https://trumpstruth.org/statuses/19193)
+
+---
+
+## 内容
+
+
+
+---
+
+## 附件
+
+![Smiling woman with short hair wearing a yellow top against a gray background, with the text "KARI LAKE WON" in large white letters at the top of the image.](https://truth-archive.us-iad-1.linodeobjects.com/attachments/7727/06daed2db7760bc2.jpg)
+[下载图片](https://truth-archive.us-iad-1.linodeobjects.com/attachments/7727/06daed2db7760bc2.jpg)
+

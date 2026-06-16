@@ -1,0 +1,20 @@
+# RT@TeamTrumpWELCOMEBACKTOBUTLER,MR.PRESIDENT.
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Saturday, October 5, 2024, 08:21 pm EDT
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/113257615589371629](https://truthsocial.com/@realDonaldTrump/113257615589371629)
+- **TRUTH Social status ID**: `113257615589371629`
+- **来源**: [https://trumpstruth.org/statuses/27065](https://trumpstruth.org/statuses/27065)
+
+---
+
+## 内容
+
+WELCOME BACK TO BUTLER, MR. PRESIDENT.
+
+
+---
+
+## 附件
+
+- **视频链接**: [下载/播放视频 (MP4)](https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/113/257/066/426/575/856/original/9eed781669991dfd.mp4)

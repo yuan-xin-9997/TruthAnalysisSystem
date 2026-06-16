@@ -1,0 +1,20 @@
+# CrazyKamablaisnotintouchwithreality—Shethinks_Bidenomicsisworking!”
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Wednesday, August 7, 2024, 12:09 am EDT
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/112918776374998544](https://truthsocial.com/@realDonaldTrump/112918776374998544)
+- **TRUTH Social status ID**: `112918776374998544`
+- **来源**: [https://trumpstruth.org/statuses/24554](https://trumpstruth.org/statuses/24554)
+
+---
+
+## 内容
+
+Crazy Kamabla is not in touch with reality—She thinks "Bidenomics is working!”
+
+
+---
+
+## 附件
+
+- **视频链接**: [下载/播放视频 (MP4)](https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/112/918/776/238/806/845/original/f6ebc707768b600c.mp4)

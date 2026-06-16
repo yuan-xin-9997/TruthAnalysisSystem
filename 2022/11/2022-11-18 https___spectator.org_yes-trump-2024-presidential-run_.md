@@ -1,0 +1,20 @@
+# https___spectator.org_yes-trump-2024-presidential-run_
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Friday, November 18, 2022, 06:06 pm EST
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/109367316501672202](https://truthsocial.com/@realDonaldTrump/109367316501672202)
+- **TRUTH Social status ID**: `109367316501672202`
+- **来源**: [https://trumpstruth.org/statuses/19084](https://trumpstruth.org/statuses/19084)
+
+---
+
+## 内容
+
+https://spectator.org/yes-trump-2024-presidential-run/
+
+
+---
+
+## 附件
+
+- **链接卡片**: [YES! - The American Spectator | USA News and PoliticsThe American Spectator | USA News and Politics](https://spectator.org/yes-trump-2024-presidential-run/) - Over there at National Review, our friends have run a piece simply titled “No” — over a photo of former President Donald Trump as he announced his campaign for president this week. Respectfully, my response to the Trump announcement is...

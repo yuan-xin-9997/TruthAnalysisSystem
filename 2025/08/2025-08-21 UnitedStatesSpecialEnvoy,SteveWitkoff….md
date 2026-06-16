@@ -1,0 +1,20 @@
+# UnitedStatesSpecialEnvoy,SteveWitkoff…
+
+- **作者**: Donald J. Trump (@realDonaldTrump)
+- **发布时间**: Thursday, August 21, 2025, 03:25 pm EDT
+- **原始链接**: [https://truthsocial.com/@realDonaldTrump/115068391246280549](https://truthsocial.com/@realDonaldTrump/115068391246280549)
+- **TRUTH Social status ID**: `115068391246280549`
+- **来源**: [https://trumpstruth.org/statuses/32680](https://trumpstruth.org/statuses/32680)
+
+---
+
+## 内容
+
+United States Special Envoy, Steve Witkoff…
+
+
+---
+
+## 附件
+
+- **视频链接**: [下载/播放视频 (MP4)](https://static-assets-1.truthsocial.com/tmtg:prime-ts-assets/media_attachments/files/115/068/386/541/426/353/original/42ded555592a0a55.mp4)

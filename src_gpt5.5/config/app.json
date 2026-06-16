@@ -1,0 +1,40 @@
+{
+  "app": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "timezone": "Asia/Shanghai"
+  },
+  "paths": {
+    "content_root": ".."
+  },
+  "crawler": {
+    "enabled": true,
+    "progress_file": "已抓取.md",
+    "base_url": "https://trumpstruth.org/statuses",
+    "batch_size": 100,
+    "daily_time": "06:30",
+    "request_timeout_seconds": 20,
+    "request_delay_seconds": 0.1,
+    "max_workers": 4,
+    "max_retries": 3,
+    "download_attachments": true
+  },
+  "analysis": {
+    "enable_llm": true,
+    "openai_model": "gpt-5.5",
+    "prompt_version": "v1",
+    "cache_llm_results": true
+  },
+  "market": {
+    "enabled": true,
+    "daily_sync_time": "07:00",
+    "symbols": ["SPY", "QQQ", "DIA"],
+    "prediction_horizons": [1, 3, 5],
+    "transaction_cost_bps": 5,
+    "provider": "stooq"
+  },
+  "scheduler": {
+    "enabled": true,
+    "run_on_startup": false
+  }
+}
