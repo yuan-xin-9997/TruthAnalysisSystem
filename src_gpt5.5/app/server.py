@@ -5,6 +5,7 @@ import mimetypes
 import re
 from dataclasses import dataclass
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from app.config import SRC_ROOT, Settings, public_settings
 from app.db import connect, rows_to_dicts
+from app.services import auth_service
+from app.services.auth_service import ALL_PAGES, CurrentUser
 from app.services.crawler_service import read_progress
 from app.services.llm_analyzer import OpenAIAnalyzer
 from app.services.task_manager import TaskManager
@@ -23,6 +26,8 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 NOISE_TOPICS = {"Truth Social 平台"}
 NOISE_TOPIC_SQL = "'Truth Social 平台'"
+SESSION_COOKIE = "sid"
+SESSION_MAX_AGE = 7 * 24 * 60 * 60  # seconds; matches auth_service.SESSION_TTL_DAYS
 WORD_FREQUENCY_EXCLUDE = {
     "http",
     "https",
@@ -61,32 +66,76 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self._serve_static(parsed.path)
 
+    def do_PUT(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        body = self._read_json_body()
+        try:
+            user = self._authenticate_or_401()
+            if user is None:
+                return
+            if match := re.fullmatch(r"/api/users/(\d+)/pages", parsed.path):
+                if not self._require_admin(user):
+                    return
+                self._handle_set_user_pages(int(match.group(1)), body)
+            else:
+                self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
+        except Exception as exc:  # noqa: BLE001
+            self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         body = self._read_json_body()
         try:
+            # Auth endpoints handle their own authentication semantics.
+            if parsed.path == "/api/auth/login":
+                self._handle_login(body)
+                return
+            if parsed.path == "/api/auth/logout":
+                self._handle_logout()
+                return
+
+            user = self._authenticate_or_401()
+            if user is None:
+                return
+
             if parsed.path == "/api/tasks/crawl":
+                if not self._enforce_page(user, "crawler"):
+                    return
                 task_id = self.context.task_manager.start_task("crawl", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/import":
+                if not self._enforce_page(user, "tasks"):
+                    return
                 task_id = self.context.task_manager.start_task("import", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/analyze":
+                if not self._enforce_page(user, "tasks"):
+                    return
                 task_id = self.context.task_manager.start_task("analyze", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/market-sync":
+                if not self._enforce_page(user, "market"):
+                    return
                 task_id = self.context.task_manager.start_task("market_sync", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/backtest":
+                if not self._enforce_page(user, "market"):
+                    return
                 task_id = self.context.task_manager.start_task("backtest", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/predict":
+                if not self._enforce_page(user, "market"):
+                    return
                 task_id = self.context.task_manager.start_task("predict", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/daily-chain":
+                if not self._enforce_page(user, "tasks"):
+                    return
                 task_id = self.context.task_manager.start_task("daily_chain", parameters=body)
                 self._json({"task_id": task_id})
             elif parsed.path == "/api/analysis/summary":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(self._llm_summary(body))
             else:
                 self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
@@ -98,54 +147,122 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _handle_api_get(self, path: str, query: dict[str, list[str]]) -> None:
         try:
+            # /api/auth/me is special: it returns the current user or 401, but
+            # never redirects.
+            if path == "/api/auth/me":
+                self._handle_me()
+                return
+
+            user = self._authenticate_or_401()
+            if user is None:
+                return
+
             if path == "/api/dashboard/summary":
+                if not self._enforce_page(user, "dashboard"):
+                    return
                 self._json(api_dashboard_summary(self.context.settings))
             elif path == "/api/dashboard/timeline":
+                if not self._enforce_page(user, "dashboard"):
+                    return
                 self._json(api_timeline(self.context.settings, query))
             elif path == "/api/dashboard/top-entities":
+                if not self._enforce_page(user, "dashboard"):
+                    return
                 self._json(api_top_entities(self.context.settings, query))
             elif path == "/api/dashboard/recent-posts":
+                if not self._enforce_page(user, "dashboard"):
+                    return
                 self._json(api_posts(self.context.settings, {"page_size": ["10"]}))
             elif path == "/api/posts":
+                if not self._enforce_page(user, "posts"):
+                    return
                 self._json(api_posts(self.context.settings, query))
             elif match := re.fullmatch(r"/api/posts/(\d+)", path):
+                if not self._enforce_page(user, "posts"):
+                    return
                 self._json(api_post_detail(self.context.settings, int(match.group(1))))
             elif match := re.fullmatch(r"/api/posts/(\d+)/analysis", path):
+                if not self._enforce_page(user, "posts"):
+                    return
                 self._json(api_post_analysis(self.context.settings, int(match.group(1))))
             elif match := re.fullmatch(r"/api/media/(\d+)/([^/]+)", path):
+                if not self._enforce_page(user, "posts"):
+                    return
                 self._serve_media_file(int(match.group(1)), match.group(2))
             elif path == "/api/analysis/word-frequency":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_word_frequency(self.context.settings, query))
             elif path == "/api/analysis/overview":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_analysis_overview(self.context.settings, query))
             elif path == "/api/analysis/top-topics":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_top_topics(self.context.settings, query))
             elif path == "/api/analysis/entities":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_analysis_entities(self.context.settings, query))
             elif path == "/api/analysis/representative-posts":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_representative_posts(self.context.settings, query))
             elif path == "/api/analysis/topics/trend":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_topic_trend(self.context.settings, query))
             elif path == "/api/analysis/countries":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_countries(self.context.settings, query))
             elif path == "/api/analysis/china":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_china(self.context.settings, query))
             elif path == "/api/analysis/sentiment":
+                if not self._enforce_page(user, "analysis"):
+                    return
                 self._json(api_sentiment(self.context.settings, query))
             elif path == "/api/tasks":
+                if not self._enforce_page(user, "tasks"):
+                    return
                 self._json(api_tasks(self.context.settings, query))
             elif match := re.fullmatch(r"/api/tasks/(\d+)/logs", path):
+                if not self._enforce_page(user, "tasks"):
+                    return
                 self._json(api_task_logs(self.context.settings, int(match.group(1))))
             elif path == "/api/crawler/status":
+                if not self._enforce_page(user, "crawler"):
+                    return
                 self._json(api_crawler_status(self.context.settings))
             elif path == "/api/market/backtests":
+                if not self._enforce_page(user, "market"):
+                    return
                 self._json(api_backtests(self.context.settings))
             elif path == "/api/market/predictions":
+                if not self._enforce_page(user, "market"):
+                    return
                 self._json(api_predictions(self.context.settings))
             elif path == "/api/settings":
+                if not self._enforce_page(user, "settings"):
+                    return
                 self._json(public_settings(self.context.settings))
             elif path == "/api/settings/health":
+                if not self._enforce_page(user, "settings"):
+                    return
                 self._json(api_health(self.context.settings))
+            elif path == "/api/users":
+                if not self._require_admin(user):
+                    return
+                with connect(self.context.settings.paths.database) as conn:
+                    items = auth_service.list_users(conn, self.context.settings.paths.password_file)
+                self._json({"items": items})
+            elif path == "/api/permissions/pages":
+                if not self._require_admin(user):
+                    return
+                self._json({"items": list(ALL_PAGES)})
             else:
                 self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
         except Exception as exc:  # noqa: BLE001
@@ -169,6 +286,106 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    # --- auth helpers -------------------------------------------------------
+
+    def _read_session_token(self) -> str | None:
+        cookie_header = self.headers.get("Cookie")
+        if not cookie_header:
+            return None
+        try:
+            jar = SimpleCookie(cookie_header)
+        except Exception:  # noqa: BLE001
+            return None
+        morsel = jar.get(SESSION_COOKIE)
+        return morsel.value if morsel else None
+
+    def _current_user(self) -> CurrentUser | None:
+        token = self._read_session_token()
+        if not token:
+            return None
+        with connect(self.context.settings.paths.database) as conn:
+            return auth_service.get_session(conn, token)
+
+    def _authenticate_or_401(self) -> CurrentUser | None:
+        user = self._current_user()
+        if user is None:
+            self._json({"error": "Unauthorized"}, HTTPStatus.UNAUTHORIZED)
+            return None
+        return user
+
+    def _enforce_page(self, user: CurrentUser, page: str) -> bool:
+        if user.can_access(page):
+            return True
+        self._json(
+            {"error": f"Forbidden: missing access to '{page}'"},
+            HTTPStatus.FORBIDDEN,
+        )
+        return False
+
+    def _require_admin(self, user: CurrentUser) -> bool:
+        if user.is_admin:
+            return True
+        self._json({"error": "Forbidden: admin only"}, HTTPStatus.FORBIDDEN)
+        return False
+
+    def _handle_login(self, body: dict[str, Any]) -> None:
+        username = (body.get("username") or "").strip()
+        password = body.get("password") or ""
+        if not username or not password:
+            self._json({"error": "用户名和密码不能为空"}, HTTPStatus.BAD_REQUEST)
+            return
+        with connect(self.context.settings.paths.database) as conn:
+            result = auth_service.login(
+                conn, self.context.settings.paths.password_file, username, password
+            )
+        if not result:
+            self._json({"error": "用户名或密码错误"}, HTTPStatus.UNAUTHORIZED)
+            return
+        token, user = result
+        payload = {
+            "user": {
+                "username": user.username,
+                "role": user.role,
+                "pages": sorted(user.pages),
+            }
+        }
+        self._json_with_cookie(payload, token=token)
+
+    def _handle_logout(self) -> None:
+        token = self._read_session_token()
+        if token:
+            with connect(self.context.settings.paths.database) as conn:
+                auth_service.logout(conn, token)
+        self._json_with_cookie({"ok": True}, clear_cookie=True)
+
+    def _handle_me(self) -> None:
+        user = self._current_user()
+        if user is None:
+            self._json({"error": "Unauthorized"}, HTTPStatus.UNAUTHORIZED)
+            return
+        self._json(
+            {
+                "username": user.username,
+                "role": user.role,
+                "pages": sorted(user.pages),
+            }
+        )
+
+    def _handle_set_user_pages(self, user_id: int, body: dict[str, Any]) -> None:
+        pages = body.get("pages")
+        if not isinstance(pages, list):
+            self._json({"error": "pages must be a list"}, HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            with connect(self.context.settings.paths.database) as conn:
+                auth_service.set_user_pages(conn, user_id, pages)
+        except ValueError as exc:
+            self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self._json({"ok": True})
+
+    # --- end auth helpers ---------------------------------------------------
 
     def _serve_static(self, path: str) -> None:
         if path in {"", "/"}:
@@ -194,6 +411,31 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _json_with_cookie(
+        self,
+        data: Any,
+        *,
+        status: HTTPStatus = HTTPStatus.OK,
+        token: str | None = None,
+        clear_cookie: bool = False,
+    ) -> None:
+        payload = json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        if clear_cookie:
+            self.send_header(
+                "Set-Cookie",
+                f"{SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0",
+            )
+        elif token is not None:
+            self.send_header(
+                "Set-Cookie",
+                f"{SESSION_COOKIE}={token}; HttpOnly; Path=/; SameSite=Lax; Max-Age={SESSION_MAX_AGE}",
+            )
         self.end_headers()
         self.wfile.write(payload)
 

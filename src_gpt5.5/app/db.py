@@ -218,6 +218,30 @@ CREATE TABLE IF NOT EXISTS predictions (
   actual_direction TEXT,
   actual_return REAL
 );
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS user_pages (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  page TEXT NOT NULL,
+  PRIMARY KEY(user_id, page)
+);
 """
 
 

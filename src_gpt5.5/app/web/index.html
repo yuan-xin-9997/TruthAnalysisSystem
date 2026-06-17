@@ -23,6 +23,7 @@
         <button data-route="market">股市分析</button>
         <button data-route="tasks">任务中心</button>
         <button data-route="settings">系统配置</button>
+        <button data-route="permissions" data-admin-only="true">权限管理</button>
       </nav>
     </aside>
     <main class="main">
@@ -34,6 +35,8 @@
         <div class="top-actions">
           <button id="refresh-btn">刷新</button>
           <button id="daily-btn" class="primary">运行每日链路</button>
+          <span id="user-info" class="user-info" hidden></span>
+          <button id="logout-btn" hidden>退出</button>
         </div>
       </header>
       <section id="app" class="content"></section>

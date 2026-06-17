@@ -15,6 +15,7 @@ const state = {
   analysisSentiment: "",
   analysisChinaRelated: "",
   analysisMarketRelated: "",
+  user: null, // { username, role, pages: [...] }
 };
 
 const titles = {
@@ -25,6 +26,17 @@ const titles = {
   market: ["股市分析", "相关性、回测和预测研究。"],
   tasks: ["任务中心", "触发抓取、导入、分析和市场任务。"],
   settings: ["系统配置", "检查数据目录、OpenAI Key、监听地址和调度配置。"],
+  permissions: ["权限管理", "管理普通用户的页面访问权限。仅管理员可访问。"],
+};
+
+const PAGE_LABELS = {
+  dashboard: "仪表盘",
+  crawler: "抓取",
+  posts: "贴文",
+  analysis: "文本分析",
+  market: "股市分析",
+  tasks: "任务中心",
+  settings: "系统配置",
 };
 
 const app = document.querySelector("#app");
@@ -35,8 +47,13 @@ document.querySelectorAll("nav button").forEach((button) => {
 
 document.querySelector("#refresh-btn").addEventListener("click", () => render());
 document.querySelector("#daily-btn").addEventListener("click", () => triggerTask("daily-chain"));
+document.querySelector("#logout-btn").addEventListener("click", () => logout());
 
 function navigate(route) {
+  if (!canAccessRoute(route)) {
+    alert("你没有访问该页面的权限。");
+    return;
+  }
   if (route !== "tasks") stopTaskLogRefresh();
   state.route = route;
   state.selectedPostId = null;
@@ -46,18 +63,96 @@ function navigate(route) {
   render();
 }
 
+function canAccessRoute(route) {
+  if (!state.user) return false;
+  if (route === "permissions") return state.user.role === "admin";
+  if (state.user.role === "admin") return true;
+  return Array.isArray(state.user.pages) && state.user.pages.includes(route);
+}
+
+function applyNavVisibility() {
+  document.querySelectorAll("nav button").forEach((button) => {
+    const route = button.dataset.route;
+    button.hidden = !canAccessRoute(route);
+  });
+}
+
+function pickInitialRoute() {
+  if (canAccessRoute(state.route)) return state.route;
+  if (!state.user) return "dashboard";
+  if (state.user.role === "admin") return "dashboard";
+  const allowed = (state.user.pages || []).find((page) => canAccessRoute(page));
+  return allowed || null;
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     ...options,
   });
-  const data = await response.json();
+  if (response.status === 401) {
+    window.location.href = "/login.html";
+    throw new Error("未登录或会话已过期");
+  }
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
   if (!response.ok) throw new Error(data.error || "请求失败");
   return data;
 }
 
+async function bootstrap() {
+  try {
+    const me = await fetch("/api/auth/me", { credentials: "same-origin" });
+    if (me.status === 401) {
+      window.location.href = "/login.html";
+      return;
+    }
+    const data = await me.json();
+    state.user = { username: data.username, role: data.role, pages: data.pages || [] };
+  } catch (error) {
+    window.location.href = "/login.html";
+    return;
+  }
+  renderUserInfo();
+  applyNavVisibility();
+  const initial = pickInitialRoute();
+  if (!initial) {
+    app.innerHTML = `<div class="panel"><div class="panel-body muted">当前账号暂未授权访问任何页面，请联系管理员配置权限。</div></div>`;
+    return;
+  }
+  state.route = initial;
+  document.querySelectorAll("nav button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.route === initial);
+  });
+  render();
+}
+
+function renderUserInfo() {
+  const userInfoEl = document.querySelector("#user-info");
+  const logoutBtn = document.querySelector("#logout-btn");
+  if (!state.user) return;
+  const roleLabel = state.user.role === "admin" ? "管理员" : "用户";
+  userInfoEl.textContent = `${state.user.username} · ${roleLabel}`;
+  userInfoEl.hidden = false;
+  logoutBtn.hidden = false;
+}
+
+async function logout() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+  } catch {
+    // ignore network errors; cookie clearing is best-effort
+  }
+  window.location.href = "/login.html";
+}
+
 async function render() {
-  const [title, subtitle] = titles[state.route];
+  const [title, subtitle] = titles[state.route] || ["", ""];
   document.querySelector("#page-title").textContent = title;
   document.querySelector("#page-subtitle").textContent = subtitle;
   app.innerHTML = `<div class="panel"><div class="panel-body muted">加载中...</div></div>`;
@@ -69,6 +164,7 @@ async function render() {
     if (state.route === "market") await renderMarket();
     if (state.route === "tasks") await renderTasks();
     if (state.route === "settings") await renderSettings();
+    if (state.route === "permissions") await renderPermissions();
   } catch (error) {
     app.innerHTML = `<div class="panel"><div class="panel-body">${escapeHtml(error.message)}</div></div>`;
   }
@@ -939,4 +1035,102 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-render();
+async function renderPermissions() {
+  const [usersResp, pagesResp] = await Promise.all([
+    api("/api/users"),
+    api("/api/permissions/pages"),
+  ]);
+  const allPages = pagesResp.items || [];
+  const users = usersResp.items || [];
+  app.innerHTML = `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>用户权限</h2>
+        <span class="muted">勾选普通用户可访问的页面；管理员固定拥有全部权限，不可修改。</span>
+      </div>
+      <div class="panel-body">
+        ${permissionsTable(users, allPages)}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header"><h2>用户配置说明</h2></div>
+      <div class="panel-body">
+        <p class="muted">用户名和密码来自 <code>${escapeHtml("data/password.txt")}</code>，格式为 <code>用户名:密码:角色</code>（角色取 admin 或 user）。</p>
+        <p class="muted">新增用户时在该文件加一行，用户首次登录后会自动同步到此处。删除某行后该用户将无法登录。</p>
+        <p class="muted">普通用户的可见页面在下方勾选后即时保存；管理员始终可访问全部页面。</p>
+      </div>
+    </section>
+  `;
+  users.forEach((user) => {
+    if (user.role === "admin") return;
+    const saveBtn = document.querySelector(`#save-pages-${user.id}`);
+    if (saveBtn) {
+      saveBtn.addEventListener("click", () => saveUserPages(user, allPages));
+    }
+  });
+}
+
+function permissionsTable(users, allPages) {
+  if (!users.length) return `<span class="muted">暂无用户。</span>`;
+  return `
+    <table class="perms-table">
+      <thead>
+        <tr>
+          <th>用户名</th>
+          <th>角色</th>
+          ${allPages.map((page) => `<th title="${escapeHtml(page)}">${escapeHtml(PAGE_LABELS[page] || page)}</th>`).join("")}
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map((user) => permissionsRow(user, allPages)).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function permissionsRow(user, allPages) {
+  const isAdmin = user.role === "admin";
+  const granted = new Set(user.pages || []);
+  const cells = allPages
+    .map((page) => {
+      const checked = isAdmin || granted.has(page) ? "checked" : "";
+      const disabled = isAdmin ? "disabled" : "";
+      return `<td class="check-cell"><input type="checkbox" data-user="${user.id}" data-page="${escapeHtml(page)}" ${checked} ${disabled} /></td>`;
+    })
+    .join("");
+  const roleLabel = isAdmin ? "管理员" : "普通用户";
+  const action = isAdmin
+    ? `<span class="muted">—</span>`
+    : `<button id="save-pages-${user.id}" class="primary">保存</button>`;
+  return `
+    <tr>
+      <td><strong>${escapeHtml(user.username)}</strong></td>
+      <td>${roleLabel}</td>
+      ${cells}
+      <td>${action}</td>
+    </tr>
+  `;
+}
+
+async function saveUserPages(user, allPages) {
+  const pages = [];
+  allPages.forEach((page) => {
+    const box = document.querySelector(
+      `input[data-user="${user.id}"][data-page="${escapeHtml(page)}"]`
+    );
+    if (box && box.checked) pages.push(page);
+  });
+  try {
+    await api(`/api/users/${user.id}/pages`, {
+      method: "PUT",
+      body: JSON.stringify({ pages }),
+    });
+    alert(`已保存 ${user.username} 的页面权限`);
+    renderPermissions();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+bootstrap();

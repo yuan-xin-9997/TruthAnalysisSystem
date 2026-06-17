@@ -6,6 +6,11 @@ from pathlib import Path
 from app.config import load_settings
 from app.db import connect, init_db
 from app.server import make_server
+from app.services.auth_service import (
+    cleanup_expired_sessions,
+    parse_password_file,
+    sync_users,
+)
 from app.services.market_data_service import ensure_symbols
 from app.services.task_manager import DailyScheduler, TaskManager
 
@@ -28,6 +33,12 @@ def main() -> None:
     conn = connect(settings.paths.database)
     try:
         ensure_symbols(conn, settings.market.symbols)
+        # Bootstrap users from password.txt; creates the file with a default
+        # admin row if missing.
+        file_users = parse_password_file(settings.paths.password_file)
+        sync_users(conn, file_users)
+        cleanup_expired_sessions(conn)
+        print(f"Loaded {len(file_users)} user(s) from {settings.paths.password_file}")
     finally:
         conn.close()
     scheduler = DailyScheduler(manager, settings)

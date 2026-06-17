@@ -610,4 +610,54 @@ tr.selected {
   .log-entry {
     grid-template-columns: 1fr;
   }
+  .perms-table {
+    font-size: 12px;
+  }
+}
+
+/* topbar user area */
+.top-actions .user-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--border, #d8dde2);
+  border-radius: 6px;
+  font-size: 13px;
+  background: #f7f8fa;
+  color: #1f2933;
+  margin-left: 6px;
+}
+
+/* permissions management table */
+.perms-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.perms-table th,
+.perms-table td {
+  border: 1px solid #d8dde2;
+  padding: 8px 10px;
+  text-align: center;
+  vertical-align: middle;
+}
+.perms-table thead th {
+  background: #f0f2f5;
+  font-weight: 600;
+}
+.perms-table td.check-cell {
+  width: 60px;
+}
+.perms-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.perms-table input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.perms-table td:first-child,
+.perms-table td:nth-child(2) {
+  text-align: left;
 }

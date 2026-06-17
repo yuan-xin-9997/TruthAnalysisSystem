@@ -24,6 +24,7 @@ class PathConfig:
     database: Path = SRC_ROOT / "data" / "app.sqlite3"
     logs: Path = SRC_ROOT / "data" / "logs"
     exports: Path = SRC_ROOT / "data" / "exports"
+    password_file: Path = SRC_ROOT / "data" / "password.txt"
 
 
 @dataclass
@@ -120,6 +121,7 @@ def public_settings(settings: Settings) -> dict[str, Any]:
             "database": str(settings.paths.database),
             "logs": str(settings.paths.logs),
             "exports": str(settings.paths.exports),
+            "password_file": str(settings.paths.password_file),
         },
         "crawler": settings.crawler.__dict__,
         "analysis": {
