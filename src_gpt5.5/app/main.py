@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 from app.config import load_settings
 from app.db import connect, init_db
+from app.logging_config import setup_logging
 from app.server import make_server
 from app.services.auth_service import (
     cleanup_expired_sessions,
@@ -15,6 +17,9 @@ from app.services.market_data_service import ensure_symbols
 from app.services.task_manager import DailyScheduler, TaskManager
 
 
+logger = logging.getLogger("app.main")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Truth Social post analysis system")
     parser.add_argument("--config", help="Path to app config JSON")
@@ -23,6 +28,8 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = load_settings(Path(args.config) if args.config else None)
+    # Configure file logging as early as possible so startup issues are captured.
+    log_file = setup_logging(settings.paths.logs)
     if args.host:
         settings.app.host = args.host
     if args.port:
@@ -38,7 +45,7 @@ def main() -> None:
         file_users = parse_password_file(settings.paths.password_file)
         sync_users(conn, file_users)
         cleanup_expired_sessions(conn)
-        print(f"Loaded {len(file_users)} user(s) from {settings.paths.password_file}")
+        logger.info("Loaded %d user(s) from %s", len(file_users), settings.paths.password_file)
     finally:
         conn.close()
     scheduler = DailyScheduler(manager, settings)
@@ -46,12 +53,13 @@ def main() -> None:
 
     server = make_server(settings, manager)
     url_host = "127.0.0.1" if settings.app.host == "0.0.0.0" else settings.app.host
-    print(f"Serving on http://{url_host}:{settings.app.port}")
-    print(f"LAN binding: {settings.app.host}:{settings.app.port}")
+    logger.info("Serving on http://%s:%s", url_host, settings.app.port)
+    logger.info("LAN binding: %s:%s", settings.app.host, settings.app.port)
+    logger.info("Log file: %s", log_file)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("Stopping server")
+        logger.info("Stopping server (KeyboardInterrupt)")
     finally:
         scheduler.stop()
         server.server_close()

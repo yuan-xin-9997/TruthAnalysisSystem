@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -10,6 +11,7 @@ from typing import Any, Callable
 
 from app.config import SRC_ROOT, Settings
 from app.db import connect
+from app.logging_config import level_for
 from app.services.crawler_service import crawl_new_statuses
 from app.services.market_data_service import (
     ensure_symbols,
@@ -22,6 +24,8 @@ from app.services.text_analyzer import analyze_all_posts
 
 
 TaskFunc = Callable[[sqlite3.Connection, int, dict[str, Any]], dict[str, Any]]
+
+logger = logging.getLogger("app.task_manager")
 
 
 class TaskManager:
@@ -124,6 +128,8 @@ class TaskManager:
             (task_id, level, message),
         )
         conn.commit()
+        # Mirror to the file logger so log files capture task progress.
+        logger.log(level_for(level), "[task#%s] %s", task_id, message)
 
     def _task_crawl(self, conn: sqlite3.Connection, task_id: int, params: dict[str, Any]) -> dict[str, Any]:
         task_started = time.perf_counter()

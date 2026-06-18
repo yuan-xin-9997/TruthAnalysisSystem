@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import mimetypes
 import re
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ from app.services.auth_service import ALL_PAGES, CurrentUser
 from app.services.crawler_service import read_progress
 from app.services.llm_analyzer import OpenAIAnalyzer
 from app.services.task_manager import TaskManager
+
+
+access_logger = logging.getLogger("app.server.access")
 
 
 WEB_ROOT = SRC_ROOT / "app" / "web"
@@ -143,7 +147,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        print(f"{self.address_string()} - {fmt % args}")
+        access_logger.info("%s - %s", self.address_string(), fmt % args)
 
     def _handle_api_get(self, path: str, query: dict[str, list[str]]) -> None:
         try:
