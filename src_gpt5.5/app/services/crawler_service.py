@@ -13,10 +13,19 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.config import Settings
+from app.services.llm_analyzer import OpenAIAnalyzer
 
 
 STATUS_URL_RE = re.compile(r"https://truthsocial\.com/@realDonaldTrump/(\d+)")
 MEDIA_RE = re.compile(r"https?://[^\s\"')>]+(?:jpg|jpeg|png|gif|webp|mp4|mov|webm)", re.I)
+# URL fragments that match decoration-only assets (avatars, site icons, etc.)
+# served by the CDN with 403/404. These are filtered out before downloading
+# and mirror the frontend rule in server.py::_is_displayable_attachment.
+ATTACHMENT_SKIP_FRAGMENTS: tuple[str, ...] = (
+    "site-icons",
+    "accounts/avatars",
+    "cache/preview_cards",
+)
 CrawlLog = Callable[[str, str], None]
 
 
@@ -38,6 +47,7 @@ def crawl_new_statuses(
     start_after: int | None = None,
     batch_size: int | None = None,
     download_attachments_enabled: bool | None = None,
+    translate_to_chinese_enabled: bool | None = None,
     log: CrawlLog | None = None,
 ) -> dict[str, Any]:
     progress_path = settings.paths.content_root / settings.crawler.progress_file
@@ -49,6 +59,11 @@ def crawl_new_statuses(
         settings.crawler.download_attachments
         if download_attachments_enabled is None
         else download_attachments_enabled
+    )
+    should_translate = (
+        settings.crawler.translate_to_chinese
+        if translate_to_chinese_enabled is None
+        else translate_to_chinese_enabled
     )
     max_success = current
     checked = 0
@@ -69,7 +84,8 @@ def crawl_new_statuses(
             f"抓取范围 {range_start}-{range_end}；批量 {batch}；"
             f"超时 {settings.crawler.request_timeout_seconds}s；请求间隔 {request_delay}s；"
             f"并发请求 {max_workers}；"
-            f"附件下载={'开启' if should_download else '关闭'}"
+            f"附件下载={'开启' if should_download else '关闭'}；"
+            f"中文翻译={'开启' if should_translate else '关闭'}"
         ),
     )
 
@@ -108,7 +124,12 @@ def crawl_new_statuses(
                     item_started = time.perf_counter()
                     try:
                         status = parse_status_html(source_id, url, html_text)
-                        markdown_path = save_status_markdown(settings, status)
+                        markdown_path = save_status_markdown(
+                            settings,
+                            status,
+                            log=log,
+                            translate_to_chinese_enabled=should_translate,
+                        )
                         attachment_result = {"attempted": 0, "saved": 0, "failed": 0, "seconds": 0.0}
                         if should_download:
                             attachment_result = download_attachments(settings, status, markdown_path, log=log)
@@ -169,6 +190,7 @@ def crawl_new_statuses(
         "request_delay_seconds": request_delay,
         "max_workers": max_workers,
         "download_attachments": should_download,
+        "translate_to_chinese": should_translate,
         "files": files,
         "errors": errors[:50],
     }
@@ -261,7 +283,12 @@ def parse_status_html(source_id: int, source_url: str, html_text: str) -> Crawle
     )
 
 
-def save_status_markdown(settings: Settings, status: CrawledStatus) -> Path:
+def save_status_markdown(
+    settings: Settings,
+    status: CrawledStatus,
+    log: CrawlLog | None = None,
+    translate_to_chinese_enabled: bool | None = None,
+) -> Path:
     dt = _date_from_published(status.published_at)
     year = dt.strftime("%Y") if dt else datetime.now().strftime("%Y")
     month = dt.strftime("%m") if dt else datetime.now().strftime("%m")
@@ -271,10 +298,17 @@ def save_status_markdown(settings: Settings, status: CrawledStatus) -> Path:
     filename = f"{prefix_date} {safe_filename(status.title)}.md"
     path = unique_path(target_dir / filename)
     attachments_text = "\n".join(f"- {url}" for url in status.attachments) if status.attachments else "无"
+    translation = translate_status_to_chinese(
+        settings,
+        status,
+        log=log,
+        translate_to_chinese_enabled=translate_to_chinese_enabled,
+    )
     markdown = (
         f"# {status.title}\n\n"
         f"- **作者**: {status.author}\n"
         f"- **发布时间**: {status.published_at}\n"
+        f"- **中文标题**: {translation.get('title_zh') or '未生成'}\n"
         f"- **原始链接**: {status.original_url or ''}\n"
         f"- **TRUTH Social status ID**: `{status.status_id or ''}`\n"
         f"- **来源**: {status.source_url}\n\n"
@@ -282,11 +316,45 @@ def save_status_markdown(settings: Settings, status: CrawledStatus) -> Path:
         "## 内容\n\n"
         f"{status.content}\n\n"
         "---\n\n"
+        "## 中文翻译\n\n"
+        f"{translation.get('content_zh') or translation.get('note') or '未生成'}\n\n"
+        "---\n\n"
         "## 附件\n\n"
         f"{attachments_text}\n"
     )
     path.write_text(markdown, encoding="utf-8")
     return path
+
+
+def translate_status_to_chinese(
+    settings: Settings,
+    status: CrawledStatus,
+    log: CrawlLog | None = None,
+    translate_to_chinese_enabled: bool | None = None,
+) -> dict[str, str]:
+    should_translate = (
+        settings.crawler.translate_to_chinese
+        if translate_to_chinese_enabled is None
+        else translate_to_chinese_enabled
+    )
+    if not should_translate:
+        return {"title_zh": "", "content_zh": "", "note": "未生成（配置已关闭中文翻译）"}
+    if not settings.analysis.enable_llm:
+        return {"title_zh": "", "content_zh": "", "note": "未生成（LLM 分析已关闭）"}
+    analyzer = OpenAIAnalyzer(model=settings.analysis.openai_model)
+    if not analyzer.available:
+        return {"title_zh": "", "content_zh": "", "note": "未生成（未配置 OPENAI_API_KEY）"}
+    if not (status.title or status.content):
+        return {"title_zh": "", "content_zh": "", "note": "未生成（原文为空）"}
+    started = time.perf_counter()
+    try:
+        _log(log, "INFO", f"开始生成中文翻译 status {status.source_status_id}")
+        result = analyzer.translate_post_to_chinese(status.title, status.content)
+        _log(log, "INFO", f"中文翻译完成 status {status.source_status_id}，耗时 {_elapsed(started)}s")
+        return result
+    except Exception as exc:  # noqa: BLE001
+        _log(log, "WARN", f"中文翻译失败 status {status.source_status_id}：{exc}")
+        return {"title_zh": "", "content_zh": "", "note": f"未生成（中文翻译失败：{exc}）"}
 
 
 def download_attachments(
@@ -296,12 +364,17 @@ def download_attachments(
     log: CrawlLog | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
-    result = {"attempted": 0, "saved": 0, "failed": 0, "seconds": 0.0}
+    result = {"attempted": 0, "saved": 0, "failed": 0, "skipped": 0, "seconds": 0.0}
     if not status.attachments:
         return result
     target_dir = markdown_path.parent / "attachments" / str(status.source_status_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     for index, url in enumerate(status.attachments, start=1):
+        # Pre-filter decoration-only URLs (avatars, site icons) that the CDN
+        # blocks anyway and the frontend won't display.
+        if _should_skip_attachment(url):
+            result["skipped"] += 1
+            continue
         result["attempted"] += 1
         try:
             parsed = urllib.parse.urlparse(url)
@@ -311,21 +384,41 @@ def download_attachments(
             with urllib.request.urlopen(request, timeout=settings.crawler.request_timeout_seconds) as response:
                 local.write_bytes(response.read())
             result["saved"] += 1
-        except Exception:
+        except urllib.error.HTTPError as exc:
             result["failed"] += 1
-            _log(log, "WARN", f"附件下载失败 status {status.source_status_id} #{index}: {url}")
+            _log(
+                log,
+                "WARN",
+                f"附件下载失败 status {status.source_status_id} #{index}: HTTP {exc.code} {exc.reason} {url}",
+            )
+            continue
+        except Exception as exc:  # noqa: BLE001
+            result["failed"] += 1
+            _log(
+                log,
+                "WARN",
+                f"附件下载失败 status {status.source_status_id} #{index}: {type(exc).__name__}: {exc} {url}",
+            )
             continue
     result["seconds"] = round(time.perf_counter() - started, 3)
-    if result["attempted"]:
+    if result["attempted"] or result["skipped"]:
         _log(
             log,
             "INFO",
             (
                 f"附件下载完成 status {status.source_status_id}：尝试 {result['attempted']}，"
-                f"成功 {result['saved']}，失败 {result['failed']}，耗时 {result['seconds']}s"
+                f"成功 {result['saved']}，失败 {result['failed']}，跳过 {result['skipped']}，"
+                f"耗时 {result['seconds']}s"
             ),
         )
     return result
+
+
+def _should_skip_attachment(url: str) -> bool:
+    if not url:
+        return True
+    lowered = url.lower()
+    return any(fragment in lowered for fragment in ATTACHMENT_SKIP_FRAGMENTS)
 
 
 def _log(callback: CrawlLog | None, level: str, message: str) -> None:
