@@ -503,6 +503,7 @@ async function renderCrawler() {
         </div>
         <div class="check-row">
           <label><input id="crawl_download_attachments" type="checkbox" ${status.download_attachments ? "checked" : ""} /> 下载附件</label>
+          <label><input id="crawl_translate_to_chinese" type="checkbox" ${status.translate_to_chinese ? "checked" : ""} /> 保存中文翻译</label>
           <label><input id="crawl_chain" type="checkbox" checked /> 抓取后自动导入并分析</label>
         </div>
         <div class="form-actions">
@@ -524,6 +525,7 @@ async function renderCrawler() {
       batch_size: numberOrNull("#crawl_batch_size"),
       import_limit: numberOrNull("#crawl_import_limit"),
       download_attachments: document.querySelector("#crawl_download_attachments").checked,
+      translate_to_chinese: document.querySelector("#crawl_translate_to_chinese").checked,
       chain: document.querySelector("#crawl_chain").checked,
     };
     try {

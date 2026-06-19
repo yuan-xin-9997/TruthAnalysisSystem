@@ -139,6 +139,9 @@ class TaskManager:
         download_attachments = params.get("download_attachments")
         if download_attachments is not None:
             download_attachments = _as_bool(download_attachments)
+        translate_to_chinese = params.get("translate_to_chinese")
+        if translate_to_chinese is not None:
+            translate_to_chinese = _as_bool(translate_to_chinese)
         self.log(
             conn,
             task_id,
@@ -147,6 +150,7 @@ class TaskManager:
                 f"参数：start_after={start_after if start_after is not None else '读取进度文件'}，"
                 f"batch_size={batch_size if batch_size is not None else self.settings.crawler.batch_size}，"
                 f"download_attachments={download_attachments if download_attachments is not None else self.settings.crawler.download_attachments}，"
+                f"translate_to_chinese={translate_to_chinese if translate_to_chinese is not None else self.settings.crawler.translate_to_chinese}，"
                 f"chain={_as_bool(params.get('chain', True))}"
             ),
         )
@@ -155,6 +159,7 @@ class TaskManager:
             start_after=start_after,
             batch_size=batch_size,
             download_attachments_enabled=download_attachments,
+            translate_to_chinese_enabled=translate_to_chinese,
             log=lambda level, message: self.log(conn, task_id, level, message),
         )
         self.log(conn, task_id, "INFO", f"抓取阶段结束：保存 {result['saved']} 个 Markdown，耗时 {result['seconds']}s")

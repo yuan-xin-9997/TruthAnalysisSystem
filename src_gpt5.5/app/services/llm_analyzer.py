@@ -32,6 +32,23 @@ class OpenAIAnalyzer:
         except json.JSONDecodeError:
             return {"raw_text": text}
 
+    def translate_post_to_chinese(self, title: str, content: str) -> dict[str, str]:
+        prompt = (
+            "请把下面的 Truth Social 贴文翻译成简体中文。保持原意，保留人名、机构名、"
+            "URL、股票代码和专有名词；不要添加评论或事实解释。输出严格 JSON，字段只包括 "
+            "title_zh 和 content_zh。正文为空时 content_zh 输出空字符串。\n\n"
+            f"标题: {title}\n正文: {content}"
+        )
+        text = self._responses_create(prompt)
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return {"title_zh": "", "content_zh": text.strip()}
+        return {
+            "title_zh": str(data.get("title_zh") or "").strip(),
+            "content_zh": str(data.get("content_zh") or "").strip(),
+        }
+
     def summarize_range(self, posts: list[dict[str, Any]]) -> dict[str, Any]:
         snippets = "\n\n".join(
             f"- {p.get('published_date')}: {p.get('title')}\n{p.get('content_clean', '')[:800]}"
@@ -76,4 +93,3 @@ class OpenAIAnalyzer:
                 if content.get("type") in {"output_text", "text"} and content.get("text"):
                     chunks.append(content["text"])
         return "\n".join(chunks).strip()
-

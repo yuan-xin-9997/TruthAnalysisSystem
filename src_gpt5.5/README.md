@@ -68,6 +68,7 @@ http://127.0.0.1:8000
 ## 重要说明
 
 - 贴文 Markdown 保存根目录由 `config/app.json` 的 `paths.content_root` 控制，默认值为 `..`，即 `src_gpt5.5` 的上一级目录。抓取时会在该目录下按 `年份/月` 创建 Markdown，附件保存在对应月份目录下的 `attachments/{source_status_id}`。如果迁移到 Linux，只需要把 `content_root` 改成 Linux 上的目标目录，或设置环境变量 `TRUTH_CONTENT_ROOT`。
+- 抓取保存 Markdown 时默认会增加 `中文标题` 元数据和 `## 中文翻译` 段落。该功能由 `config/app.json` 的 `crawler.translate_to_chinese` 控制；需要配置 `OPENAI_API_KEY` 才能生成真实翻译，否则会保留原文并写入未生成说明。
 - SQLite 数据库、日志和导出文件默认仍放在 `src_gpt5.5/data`，不和贴文 Markdown 根目录混用。
 - OpenAI 模型默认配置为 `gpt-5.5`，可在 `config/app.json` 中修改。
 - 行情数据源先使用免账号的 Stooq 日线 CSV 适配器，后续可以替换为付费或更稳定的数据源。

@@ -857,6 +857,7 @@ def api_crawler_status(settings: Settings) -> dict[str, Any]:
         "request_delay_seconds": settings.crawler.request_delay_seconds,
         "max_workers": settings.crawler.max_workers,
         "download_attachments": settings.crawler.download_attachments,
+        "translate_to_chinese": settings.crawler.translate_to_chinese,
         "running": running,
         "last_crawl": dict(last_crawl) if last_crawl else None,
     }

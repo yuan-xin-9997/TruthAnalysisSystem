@@ -39,6 +39,7 @@ class CrawlerConfig:
     max_workers: int = 4
     max_retries: int = 3
     download_attachments: bool = True
+    translate_to_chinese: bool = True
 
 
 @dataclass
