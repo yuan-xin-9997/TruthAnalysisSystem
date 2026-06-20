@@ -44,20 +44,32 @@ PORT="${SERVICE_PORT:-$(read_port)}"
 health_check() {
   "$PYTHON_CMD" - "$PORT" <<'PY' >/dev/null 2>&1
 import sys
+import urllib.error
 import urllib.request
 
 port = sys.argv[1]
-urllib.request.urlopen(f"http://127.0.0.1:{port}/api/settings/health", timeout=3).read()
+try:
+    urllib.request.urlopen(f"http://127.0.0.1:{port}/api/settings/health", timeout=3).read()
+except urllib.error.HTTPError:
+    # Any HTTP response proves that the application is listening. The health
+    # endpoint may require authentication and legitimately return HTTP 401.
+    pass
 PY
 }
 
 print_health() {
   "$PYTHON_CMD" - "$PORT" <<'PY'
 import sys
+import urllib.error
 import urllib.request
 
 port = sys.argv[1]
-with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/settings/health", timeout=5) as response:
+try:
+    response = urllib.request.urlopen(f"http://127.0.0.1:{port}/api/settings/health", timeout=5)
+except urllib.error.HTTPError as exc:
+    response = exc
+
+with response:
     print(f"HTTP: {response.status}")
     print(response.read().decode("utf-8"))
 PY

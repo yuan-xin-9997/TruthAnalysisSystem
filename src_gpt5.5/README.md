@@ -341,6 +341,8 @@ POST /api/notification/test-email
 - 端口监听
 - 健康检查接口 `/api/settings/health`
 
+健康检查以接口是否返回 HTTP 响应为准。启用登录认证后，该接口可能返回 `401`，这仍表示服务已经成功监听端口。
+
 ### 查看日志
 
 应用日志默认在：
