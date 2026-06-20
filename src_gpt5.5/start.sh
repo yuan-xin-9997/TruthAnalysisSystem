@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/service_common.sh"
 
 mkdir -p "$DATA_DIR"
+mkdir -p "$LOGS_DIR"
 
 if ! command -v "$PYTHON_CMD" >/dev/null 2>&1; then
   echo "Python was not found. Install python3, or set PYTHON_BIN=/path/to/python."

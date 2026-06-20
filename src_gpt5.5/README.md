@@ -323,8 +323,9 @@ src_gpt5.5/logs/app.log.2026-06-20
 
 如果启动失败，也可以看：
 
-- `server.out.log`
-- `server.err.log`
+- `logs/server.out.log`
+- `logs/server.err.log`
+- `logs/server.pid`
 
 ### 进度文件
 

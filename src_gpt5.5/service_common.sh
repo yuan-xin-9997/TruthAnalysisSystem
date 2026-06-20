@@ -4,10 +4,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="$ROOT/data"
+LOGS_DIR="$ROOT/logs"
 CONFIG_FILE="$ROOT/config/app.json"
-PID_FILE="$DATA_DIR/server.pid"
-OUT_LOG="$DATA_DIR/server.out.log"
-ERR_LOG="$DATA_DIR/server.err.log"
+PID_FILE="$LOGS_DIR/server.pid"
+OUT_LOG="$LOGS_DIR/server.out.log"
+ERR_LOG="$LOGS_DIR/server.err.log"
 
 choose_python() {
   if [[ -n "${PYTHON_BIN:-}" ]]; then
@@ -82,4 +83,3 @@ port_pids() {
 unique_lines() {
   awk 'NF && !seen[$0]++'
 }
-
