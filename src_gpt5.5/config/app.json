@@ -12,7 +12,7 @@
     "progress_file": "data/已抓取.md",
     "base_url": "https://trumpstruth.org/statuses",
     "batch_size": 100,
-    "daily_time": "22:30",
+    "daily_time": "08:30",
     "request_timeout_seconds": 20,
     "request_delay_seconds": 0.1,
     "max_workers": 4,
@@ -57,16 +57,16 @@
     "run_on_startup": false
   },
   "notification": {
-    "enabled": false,
-    "send_after_daily_crawl": false,
+    "enabled": true,
+    "send_after_daily_crawl": true,
     "min_china_related_count": 1,
-    "smtp_host": "",
-    "smtp_port": 587,
-    "smtp_username": "",
-    "smtp_password": "",
+    "smtp_host": "smtp.163.com",
+    "smtp_port": 465,
+    "smtp_username": "yuanxin9997@163.com",
+    "smtp_password": "IBJLBPTQHHDHXMEY",
     "smtp_use_tls": true,
-    "sender": "",
-    "recipient": "",
-    "subject_prefix": "[特朗普真实社交]"
+    "sender": "yuanxin9997@163.com",
+    "recipient": "1398651518@qq.com",
+    "subject_prefix": "[特朗普真实社交中国相关的贴文]"
   }
 }
