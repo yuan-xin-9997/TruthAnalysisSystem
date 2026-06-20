@@ -18,7 +18,15 @@ def send_china_related_email(settings: Settings, posts: list[dict[str, Any]], ta
         return {"sent": False, "reason": "smtp settings incomplete"}
 
     subject = f"{cfg.subject_prefix} 今日中国相关贴文 {len(posts)} 条"
-    plain_body, html_body = _build_message_bodies(posts, task_summary)
+    sorted_posts = sorted(
+        posts,
+        key=lambda post: (
+            str(post.get("published_date") or post.get("published_at_utc") or ""),
+            int(post.get("id") or 0),
+        ),
+        reverse=True,
+    )
+    plain_body, html_body = _build_message_bodies(sorted_posts, task_summary)
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = cfg.sender
