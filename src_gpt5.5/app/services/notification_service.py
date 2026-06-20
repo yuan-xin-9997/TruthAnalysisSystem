@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import smtplib
+from html import escape
 from email.message import EmailMessage
 from typing import Any
 
@@ -17,12 +18,13 @@ def send_china_related_email(settings: Settings, posts: list[dict[str, Any]], ta
         return {"sent": False, "reason": "smtp settings incomplete"}
 
     subject = f"{cfg.subject_prefix} 今日中国相关贴文 {len(posts)} 条"
-    body = _build_body(posts, task_summary)
+    plain_body, html_body = _build_message_bodies(posts, task_summary)
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = cfg.sender
     msg["To"] = cfg.recipient
-    msg.set_content(body)
+    msg.set_content(plain_body)
+    msg.add_alternative(html_body, subtype="html")
 
     _send_via_smtp(cfg, msg)
 
@@ -43,11 +45,20 @@ def send_test_email(settings: Settings) -> dict[str, Any]:
         f"收件人：{cfg.recipient}\n"
         f"SMTP：{cfg.smtp_host}:{cfg.smtp_port}\n"
     )
+    html_body = (
+        "<html><body>"
+        "<p>这是一封测试邮件，用于验证 SMTP 配置是否正确。</p>"
+        f"<p>发件人：{escape(cfg.sender)}</p>"
+        f"<p>收件人：{escape(cfg.recipient)}</p>"
+        f"<p>SMTP：{escape(cfg.smtp_host)}:{cfg.smtp_port}</p>"
+        "</body></html>"
+    )
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = cfg.sender
     msg["To"] = cfg.recipient
     msg.set_content(body)
+    msg.add_alternative(html_body, subtype="html")
 
     _send_via_smtp(cfg, msg)
 
@@ -70,26 +81,58 @@ def _send_via_smtp(cfg: Any, msg: EmailMessage) -> None:
         smtp.send_message(msg)
 
 
-def _build_body(posts: list[dict[str, Any]], task_summary: dict[str, Any]) -> str:
-    lines: list[str] = []
-    lines.append("每日定时抓取完成，检测到中国相关贴文。")
-    lines.append("")
-    lines.append(f"抓取贴文数：{task_summary.get('saved', 0)}")
-    lines.append(f"中国相关命中：{len(posts)}")
-    lines.append("")
+def _build_message_bodies(posts: list[dict[str, Any]], task_summary: dict[str, Any]) -> tuple[str, str]:
+    plain_lines: list[str] = []
+    plain_lines.append("每日定时抓取完成，检测到中国相关贴文。")
+    plain_lines.append("")
+    plain_lines.append(f"抓取贴文数：{task_summary.get('saved', 0)}")
+    plain_lines.append(f"中国相关命中：{len(posts)}")
+    plain_lines.append("")
+
+    html_parts: list[str] = []
+    html_parts.append("<html><body>")
+    html_parts.append("<p>每日定时抓取完成，检测到中国相关贴文。</p>")
+    html_parts.append(f"<p>抓取贴文数：{escape(str(task_summary.get('saved', 0)))}</p>")
+    html_parts.append(f"<p>中国相关命中：{escape(str(len(posts)))}</p>")
+
     for idx, post in enumerate(posts, start=1):
-        lines.append(f"=== {idx}. {post.get('title') or ''} ===")
-        lines.append(f"ID: {post.get('id')}")
-        lines.append(f"发布时间: {post.get('published_date') or post.get('published_at_utc') or ''}")
-        lines.append(f"相关性分数: {post.get('score')}")
-        lines.append(f"命中关键词: {post.get('matched_keywords') or ''}")
-        lines.append(f"原因: {post.get('reason') or ''}")
-        lines.append(f"链接: {post.get('source_url') or post.get('original_url') or ''}")
-        lines.append("")
-        lines.append("正文：")
-        lines.append(post.get("content_clean") or "")
-        lines.append("")
-        if post.get("file_path"):
-            lines.append(f"Markdown: {post.get('file_path')}")
-        lines.append("")
-    return "\n".join(lines)
+        title = post.get("title") or ""
+        published = post.get("published_date") or post.get("published_at_utc") or ""
+        score = post.get("score")
+        keywords = post.get("matched_keywords") or ""
+        reason = post.get("reason") or ""
+        link = post.get("source_url") or post.get("original_url") or ""
+        body = post.get("content_clean") or ""
+        markdown_path = post.get("file_path") or ""
+
+        plain_lines.append(f"=== {idx}. {title} ===")
+        plain_lines.append(f"ID: {post.get('id')}")
+        plain_lines.append(f"发布时间: {published}")
+        plain_lines.append(f"相关性分数: {score}")
+        plain_lines.append(f"命中关键词: {keywords}")
+        plain_lines.append(f"原因: {reason}")
+        plain_lines.append(f"链接: {link}")
+        plain_lines.append("")
+        plain_lines.append("正文：")
+        plain_lines.append(body)
+        plain_lines.append("")
+        if markdown_path:
+            plain_lines.append(f"Markdown: {markdown_path}")
+        plain_lines.append("")
+
+        html_parts.append("<hr>")
+        html_parts.append(f"<h3>{idx}. {escape(title)}</h3>")
+        html_parts.append("<ul>")
+        html_parts.append(f"<li><strong>ID:</strong> {escape(str(post.get('id')))}</li>")
+        html_parts.append(f"<li><strong>发布时间:</strong> {escape(str(published))}</li>")
+        html_parts.append(f"<li><strong>相关性分数:</strong> {escape(str(score))}</li>")
+        html_parts.append(f"<li><strong>命中关键词:</strong> {escape(str(keywords))}</li>")
+        html_parts.append(f"<li><strong>原因:</strong> {escape(str(reason))}</li>")
+        html_parts.append(f"<li><strong>链接:</strong> <a href=\"{escape(str(link))}\">{escape(str(link))}</a></li>")
+        if markdown_path:
+            html_parts.append(f"<li><strong>Markdown:</strong> {escape(str(markdown_path))}</li>")
+        html_parts.append("</ul>")
+        html_parts.append(f"<p><strong>正文：</strong></p><pre style=\"white-space: pre-wrap; font-family: inherit;\">{escape(body)}</pre>")
+
+    html_parts.append("</body></html>")
+    return "\n".join(plain_lines), "".join(html_parts)
