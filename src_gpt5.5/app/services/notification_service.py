@@ -34,6 +34,36 @@ def send_china_related_email(settings: Settings, posts: list[dict[str, Any]], ta
     return {"sent": True, "count": len(posts), "subject": subject}
 
 
+def send_test_email(settings: Settings) -> dict[str, Any]:
+    cfg = settings.notification
+    if not cfg.enabled:
+        return {"sent": False, "reason": "notification disabled"}
+    if not all([cfg.smtp_host, cfg.sender, cfg.recipient]):
+        return {"sent": False, "reason": "smtp settings incomplete"}
+
+    subject = f"{cfg.subject_prefix} 测试邮件"
+    body = (
+        "这是一封测试邮件，用于验证 SMTP 配置是否正确。\n\n"
+        f"发件人：{cfg.sender}\n"
+        f"收件人：{cfg.recipient}\n"
+        f"SMTP：{cfg.smtp_host}:{cfg.smtp_port}\n"
+    )
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = cfg.sender
+    msg["To"] = cfg.recipient
+    msg.set_content(body)
+
+    with smtplib.SMTP(cfg.smtp_host, int(cfg.smtp_port), timeout=20) as smtp:
+        if cfg.smtp_use_tls:
+            smtp.starttls()
+        if cfg.smtp_username:
+            smtp.login(cfg.smtp_username, cfg.smtp_password)
+        smtp.send_message(msg)
+
+    return {"sent": True, "subject": subject}
+
+
 def _build_body(posts: list[dict[str, Any]], task_summary: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append("每日定时抓取完成，检测到中国相关贴文。")

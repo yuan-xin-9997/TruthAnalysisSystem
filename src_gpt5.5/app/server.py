@@ -18,6 +18,7 @@ from app.services import auth_service
 from app.services.auth_service import ALL_PAGES, CurrentUser
 from app.services.crawler_service import read_progress
 from app.services.llm_analyzer import OpenAIAnalyzer
+from app.services.notification_service import send_test_email
 from app.services.task_manager import TaskManager
 
 
@@ -142,6 +143,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     return
                 task_id = self.context.task_manager.start_task("daily_chain", parameters=body)
                 self._json({"task_id": task_id})
+            elif parsed.path == "/api/notification/test-email":
+                if not self._enforce_page(user, "tasks"):
+                    return
+                self._json(send_test_email(self.context.settings))
             elif parsed.path == "/api/analysis/summary":
                 if not self._enforce_page(user, "analysis"):
                     return
