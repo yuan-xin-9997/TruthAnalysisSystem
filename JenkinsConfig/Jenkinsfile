@@ -8,56 +8,63 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
+        skipDefaultCheckout(true)
     }
 
     environment {
         DEPLOY_DIR = '/opt/TruthAnalysisSystem'
-        APP_DIR = "${env.DEPLOY_DIR}/src_gpt5.5"
-        RESTART_SCRIPT = "${env.APP_DIR}/start.sh"
-        STOP_SCRIPT = "${env.APP_DIR}/stop.sh"
+        APP_DIR = '/opt/TruthAnalysisSystem/src_gpt5.5'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout from GitHub') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Deploy') {
+        stage('Stop Service') {
             steps {
                 sh '''
-                    set -euo pipefail
-                    mkdir -p "$DEPLOY_DIR"
-                    rsync -a --delete \
-                      --exclude .git \
-                      --exclude .github \
-                      --exclude .idea \
-                      --exclude .obsidian \
-                      --exclude __pycache__ \
-                      --exclude '*.db' \
-                      --exclude 'src_gpt5.5/logs/' \
-                      --exclude 'src_gpt5.5/data/app.sqlite3' \
-                      --exclude 'src_gpt5.5/data/app.sqlite3-shm' \
-                      --exclude 'src_gpt5.5/data/app.sqlite3-wal' \
-                      ./ "$DEPLOY_DIR"/
+                    set -eu
+                    if [ -f "$APP_DIR/stop.sh" ]; then
+                        chmod +x "$APP_DIR/stop.sh"
+                        "$APP_DIR/stop.sh"
+                    else
+                        echo "No deployed stop.sh found; treating this as the first deployment."
+                    fi
                 '''
             }
         }
 
-        stage('Restart Service') {
+        stage('Update Deployment') {
             steps {
                 sh '''
-                    set -euo pipefail
-                    if [ -x "$STOP_SCRIPT" ]; then
-                      "$STOP_SCRIPT" || true
+                    set -eu
+                    mkdir -p "$DEPLOY_DIR"
+                    rsync -a --delete \
+                        --exclude='.git/' \
+                        --exclude='.env' \
+                        --exclude='src_gpt5.5/config/app.json' \
+                        --exclude='src_gpt5.5/data/' \
+                        --exclude='src_gpt5.5/logs/' \
+                        "$WORKSPACE/" "$DEPLOY_DIR/"
+                    if [ ! -f "$APP_DIR/config/app.json" ]; then
+                        cp "$WORKSPACE/src_gpt5.5/config/app.json" "$APP_DIR/config/app.json"
                     fi
-                    if [ -x "$RESTART_SCRIPT" ]; then
-                      "$RESTART_SCRIPT"
-                    else
-                      echo "Missing start.sh at $RESTART_SCRIPT"
-                      exit 1
-                    fi
+                '''
+            }
+        }
+
+        stage('Start Service') {
+            steps {
+                sh '''
+                    set -eu
+                    test -f "$APP_DIR/start.sh"
+                    chmod +x "$APP_DIR/start.sh"
+                    [ ! -f "$APP_DIR/stop.sh" ] || chmod +x "$APP_DIR/stop.sh"
+                    [ ! -f "$APP_DIR/status.sh" ] || chmod +x "$APP_DIR/status.sh"
+                    "$APP_DIR/start.sh"
                 '''
             }
         }
@@ -65,10 +72,10 @@ pipeline {
 
     post {
         success {
-            echo 'Deployment and restart completed successfully.'
+            echo 'TruthAnalysisSystem deployment completed successfully.'
         }
         failure {
-            echo 'Deployment failed. Please check the Jenkins console output.'
+            echo 'TruthAnalysisSystem deployment failed. Check the Jenkins console log.'
         }
     }
 }
