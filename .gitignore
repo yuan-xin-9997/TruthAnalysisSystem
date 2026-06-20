@@ -217,3 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 src_gpt5.5/data/app.sqlite3
+src_gpt5.5/data/app.sqlite3-shm
+src_gpt5.5/data/app.sqlite3-wal
