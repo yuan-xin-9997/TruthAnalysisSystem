@@ -175,6 +175,15 @@ p {
   font-size: 22px;
 }
 
+.viewed-post-title {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.translation {
+  white-space: pre-wrap;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);

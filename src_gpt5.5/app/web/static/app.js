@@ -1,6 +1,7 @@
 const state = {
   route: "dashboard",
   selectedPostId: null,
+  viewedPostIds: loadViewedPostIds(),
   postsPage: 1,
   postsPageSize: 25,
   postsTotal: 0,
@@ -344,11 +345,16 @@ async function loadPostDetail(id) {
   ]);
   const p = detail.post;
   const attachments = detail.attachments || [];
+  markPostViewed(p.id);
+  const beijingTime = formatBeijingDateTime(p.published_at_utc || p.published_at_et || p.published_at_raw || p.published_date);
+  const translationSection = shouldShowJune2026Translation(p, attachments) ? await loadPostTranslation(p.id) : "";
   document.querySelector("#post-detail").innerHTML = `
     <h3>${escapeHtml(p.title || "")}</h3>
-    <p class="muted">${escapeHtml(p.published_at_raw || "")}</p>
+    <p class="muted">${escapeHtml(formatPostDateTime(p))}</p>
+    ${beijingTime ? `<p class="muted">北京时间：${escapeHtml(beijingTime)}</p>` : ""}
     <p><a href="${escapeHtml(p.original_url || "#")}" target="_blank">原始链接</a> · <a href="${escapeHtml(p.source_url || "#")}" target="_blank">来源</a></p>
     ${p.content_raw ? `<div class="detail">${escapeHtml(p.content_raw)}</div>` : `<div class="detail muted">该贴文正文为空，内容见附件。</div>`}
+    ${translationSection}
     ${renderAttachments(attachments)}
     <h3>分析</h3>
     <p>${tags((analysis.topics || []).map((x) => x.topic), "gold")}</p>
@@ -358,6 +364,37 @@ async function loadPostDetail(id) {
     <h3>高频词</h3>
     ${bars((analysis.terms || []).slice(0, 20), "term", "count")}
   `;
+}
+
+function shouldShowJune2026Translation(post, attachments) {
+  const date = String(post?.published_date || "");
+  return date.startsWith("2026-06") && !postHasVideoAttachment(attachments);
+}
+
+function postHasVideoAttachment(attachments) {
+  const hasVideo = (Array.isArray(attachments) ? attachments : []).some((item) => String(item.attachment_type || "").toLowerCase() === "video");
+  return hasVideo;
+}
+
+async function loadPostTranslation(postId) {
+  try {
+    const data = await api(`/api/posts/${postId}/source`);
+    const translation = extractChineseTranslation(data.content || "");
+    if (!translation) return "";
+    return `
+      <h3>中文翻译</h3>
+      <div class="detail translation">${escapeHtml(translation)}</div>
+    `;
+  } catch {
+    return "";
+  }
+}
+
+function extractChineseTranslation(markdown) {
+  const text = String(markdown || "");
+  const match = text.match(/##\s+中文翻译\s*(?:\r?\n)+([\s\S]*?)(?=(?:\r?\n)##\s+|(?:\r?\n)---+(?:\r?\n)|\s*$)/);
+  if (!match) return "";
+  return match[1].trim().replace(/^(\r?\n)+|(\r?\n)+$/g, "");
 }
 
 async function renderAnalysis() {
@@ -579,6 +616,7 @@ async function renderTasks() {
       <button onclick="triggerTask('crawl')" class="primary">抓取新增</button>
       <button onclick="triggerTask('import')">导入 Markdown</button>
       <button onclick="triggerTask('analyze')">分析贴文</button>
+      <button onclick="triggerTask('reanalyze')">重分析已有贴文</button>
       <button onclick="triggerTask('market-sync')">同步行情</button>
       <button onclick="triggerTask('backtest')">回测</button>
       <button onclick="triggerTask('predict')">预测</button>
@@ -718,7 +756,7 @@ function entityTable(items) {
       <td><strong>${escapeHtml(item.normalized_name || "")}</strong></td>
       <td>${escapeHtml(item.entity_type || "")}</td>
       <td>${escapeHtml(item.count || 0)}</td>
-      <td>${escapeHtml(item.latest_date || "")}</td>
+      <td>${escapeHtml(formatBeijingDateTime(item.latest_date) || item.latest_date || "")}</td>
       <td>${escapeHtml(item.avg_sentiment === null || item.avg_sentiment === undefined ? "-" : round(item.avg_sentiment))}</td>
     </tr>
   `).join("")}</tbody></table>`;
@@ -805,6 +843,9 @@ function renderTaskLog(task, logs) {
   const parameters = formatJson(task.parameters);
   const summary = formatJson(task.summary || task.error_message);
   const autoRefresh = task.status === "running" ? "运行中，每 3 秒自动刷新" : "任务已结束";
+  const createdAt = formatBeijingDateTime(task.created_at);
+  const startedAt = formatBeijingDateTime(task.started_at);
+  const finishedAt = formatBeijingDateTime(task.finished_at);
   return `
     <div class="task-log-head">
       <div>
@@ -815,9 +856,9 @@ function renderTaskLog(task, logs) {
     </div>
     <div class="task-log-meta">
       <div><span>触发</span><strong>${escapeHtml(task.trigger_type || "-")}</strong></div>
-      <div><span>创建</span><strong>${escapeHtml(task.created_at || "-")}</strong></div>
-      <div><span>开始</span><strong>${escapeHtml(task.started_at || "-")}</strong></div>
-      <div><span>结束</span><strong>${escapeHtml(task.finished_at || "-")}</strong></div>
+      <div><span>创建</span><strong>${escapeHtml(createdAt || task.created_at || "-")}</strong></div>
+      <div><span>开始</span><strong>${escapeHtml(startedAt || task.started_at || "-")}</strong></div>
+      <div><span>结束</span><strong>${escapeHtml(finishedAt || task.finished_at || "-")}</strong></div>
     </div>
     ${parameters ? `<h3>参数</h3><pre class="detail compact">${escapeHtml(parameters)}</pre>` : ""}
     ${summary ? `<h3>摘要</h3><pre class="detail compact">${escapeHtml(summary)}</pre>` : ""}
@@ -830,7 +871,7 @@ function taskLogEntries(logs) {
   if (!logs?.length) return `<span class="muted">暂无日志。</span>`;
   return `<div class="log-list">${logs.map((log) => `
     <div class="log-entry ${String(log.level || "").toLowerCase()}">
-      <span class="log-time">${escapeHtml(log.created_at || "")}</span>
+      <span class="log-time">${escapeHtml(formatBeijingDateTime(log.created_at) || log.created_at || "")}</span>
       <span class="log-level">${escapeHtml(log.level || "")}</span>
       <pre class="log-message">${escapeHtml(log.message || "")}</pre>
     </div>
@@ -858,8 +899,14 @@ function postsTable(items, clickable) {
   if (!items?.length) return `<span class="muted">暂无贴文</span>`;
   return `<table><thead><tr><th>日期和时间</th><th>标题</th><th>主题</th><th>标记</th></tr></thead><tbody>${items.map((p) => `
     <tr ${clickable ? `class="clickable" data-post-id="${p.id}"` : ""}>
-      <td>${escapeHtml(formatPostDateTime(p))}</td>
-      <td><strong>${escapeHtml(short(p.title || "", 70))}</strong><br><span class="muted">${escapeHtml(short(p.content_clean || "", 120))}</span></td>
+      <td>
+        <div>${escapeHtml(formatBeijingDateTime(p.published_at_utc || p.published_at_et || p.published_at_raw || p.published_date) || formatPostDateTime(p))}</div>
+        <div class="muted">${escapeHtml(formatPostDateTime(p))}</div>
+      </td>
+      <td>
+        <strong class="${state.viewedPostIds.has(String(p.id)) ? "viewed-post-title" : ""}">${escapeHtml(short(p.title || "", 70))}</strong><br>
+        <span class="muted">${escapeHtml(short(p.content_clean || "", 120))}</span>
+      </td>
       <td>${tags((p.topics || "").split(",").filter(Boolean).slice(0, 3), "gold")}</td>
       <td>${p.china_related ? '<span class="tag green">中国</span>' : ""}${p.sentiment ? `<span class="tag">${escapeHtml(p.sentiment)}</span>` : ""}</td>
     </tr>`).join("")}</tbody></table>`;
@@ -911,14 +958,16 @@ function tasksTable(items) {
   return `<table><thead><tr><th>ID</th><th>类型</th><th>状态</th><th>触发</th><th>开始</th><th>结束</th><th>摘要</th></tr></thead><tbody>${items.map((t) => `
     <tr class="clickable ${String(t.id) === state.selectedTaskId ? "selected" : ""}" data-task-id="${t.id}">
       <td>${t.id}</td><td>${escapeHtml(t.task_type)}</td><td>${statusTag(t.status)}</td><td>${escapeHtml(t.trigger_type || "")}</td>
-      <td>${escapeHtml(t.started_at || "")}</td><td>${escapeHtml(t.finished_at || "")}</td><td>${escapeHtml(short(t.summary || t.error_message || "", 80))}</td>
+      <td>${escapeHtml(formatBeijingDateTime(t.started_at) || t.started_at || "")}</td>
+      <td>${escapeHtml(formatBeijingDateTime(t.finished_at) || t.finished_at || "")}</td>
+      <td>${escapeHtml(short(t.summary || t.error_message || "", 80))}</td>
     </tr>`).join("")}</tbody></table>`;
 }
 
 function chinaPostsTable(items) {
   if (!items.length) return `<span class="muted">暂无中国相关贴文</span>`;
   return `<table><thead><tr><th>日期</th><th>标题</th><th>分数</th><th>关键词</th></tr></thead><tbody>${items.map((p) => `
-    <tr><td>${escapeHtml(p.published_date || "")}</td><td>${escapeHtml(short(p.title || "", 80))}</td><td>${round(p.score)}</td><td>${escapeHtml(p.matched_keywords || "")}</td></tr>
+    <tr><td>${escapeHtml(formatBeijingDateTime(p.published_at_utc || p.published_at_et || p.published_date) || p.published_date || "")}</td><td>${escapeHtml(short(p.title || "", 80))}</td><td>${round(p.score)}</td><td>${escapeHtml(p.matched_keywords || "")}</td></tr>
   `).join("")}</tbody></table>`;
 }
 
@@ -926,7 +975,7 @@ function analysisPostsTable(items) {
   if (!items.length) return `<span class="muted">暂无代表贴文</span>`;
   return `<table><thead><tr><th>日期</th><th>标题与摘要</th><th>主题</th><th>情绪</th></tr></thead><tbody>${items.map((p) => `
     <tr>
-      <td>${escapeHtml(p.published_date || "")}</td>
+      <td>${escapeHtml(formatBeijingDateTime(p.published_at_utc || p.published_at_et || p.published_date) || p.published_date || "")}</td>
       <td><strong>${escapeHtml(short(p.title || "", 90))}</strong><br><span class="muted">${escapeHtml(short(p.content_clean || "", 150))}</span></td>
       <td>${tags((p.topics || "").split(",").filter(Boolean).slice(0, 4), "gold")}</td>
       <td>${p.sentiment ? `<span class="tag">${escapeHtml(p.sentiment)} ${escapeHtml(p.sentiment_score === null || p.sentiment_score === undefined ? "" : round(p.sentiment_score))}</span>` : ""}</td>
@@ -937,7 +986,7 @@ function analysisPostsTable(items) {
 function simpleTable(items, keys) {
   if (!items?.length) return `<span class="muted">暂无数据</span>`;
   return `<table><thead><tr>${keys.map((k) => `<th>${escapeHtml(k)}</th>`).join("")}</tr></thead><tbody>${items.map((item) => `
-    <tr>${keys.map((k) => `<td>${escapeHtml(formatValue(item[k]))}</td>`).join("")}</tr>
+    <tr>${keys.map((k) => `<td>${escapeHtml(formatTableCell(k, item[k]))}</td>`).join("")}</tr>
   `).join("")}</tbody></table>`;
 }
 
@@ -998,6 +1047,32 @@ function formatPostDateTime(post) {
   return String(value).replace("T", " ").replace("+00:00", " UTC");
 }
 
+function formatBeijingDateTime(value) {
+  const parsed = parseDateTime(value);
+  if (!parsed) return "";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
+    .format(parsed)
+    .replaceAll("/", "-");
+}
+
+function parseDateTime(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2}| UTC)$/.test(text);
+  const normalized = hasTimezone ? text.replace(" UTC", "+00:00") : `${text}Z`;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function short(value, length) {
   value = String(value ?? "");
   return value.length > length ? `${value.slice(0, length - 1)}...` : value;
@@ -1006,6 +1081,41 @@ function short(value, length) {
 function formatValue(value) {
   if (typeof value === "number") return round(value);
   return value ?? "";
+}
+
+function loadViewedPostIds() {
+  try {
+    const raw = localStorage.getItem("viewedPostIds");
+    const items = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(items) ? items.map((item) => String(item)) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveViewedPostIds() {
+  try {
+    localStorage.setItem("viewedPostIds", JSON.stringify(Array.from(state.viewedPostIds)));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function markPostViewed(id) {
+  const key = String(id);
+  if (!key || state.viewedPostIds.has(key)) return;
+  state.viewedPostIds.add(key);
+  saveViewedPostIds();
+}
+
+function formatTableCell(key, value) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "number") return formatValue(value);
+  const keyText = String(key || "").toLowerCase();
+  if (keyText.includes("created_at") || keyText.includes("updated_at") || keyText.endsWith("_at") || keyText.endsWith("_date") || keyText.includes("time")) {
+    return formatBeijingDateTime(value) || formatValue(value);
+  }
+  return formatValue(value);
 }
 
 function formatJson(value) {

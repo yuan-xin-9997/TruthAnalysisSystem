@@ -117,6 +117,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                     return
                 task_id = self.context.task_manager.start_task("analyze", parameters=body)
                 self._json({"task_id": task_id})
+            elif parsed.path == "/api/tasks/reanalyze":
+                if not self._enforce_page(user, "tasks"):
+                    return
+                task_id = self.context.task_manager.start_task("reanalyze", parameters=body)
+                self._json({"task_id": task_id})
             elif parsed.path == "/api/tasks/market-sync":
                 if not self._enforce_page(user, "market"):
                     return
@@ -189,6 +194,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 if not self._enforce_page(user, "posts"):
                     return
                 self._json(api_post_analysis(self.context.settings, int(match.group(1))))
+            elif match := re.fullmatch(r"/api/posts/(\d+)/source", path):
+                if not self._enforce_page(user, "posts"):
+                    return
+                self._json(api_post_source(self.context.settings, int(match.group(1))))
             elif match := re.fullmatch(r"/api/media/(\d+)/([^/]+)", path):
                 if not self._enforce_page(user, "posts"):
                     return
@@ -561,6 +570,20 @@ def api_post_analysis(settings: Settings, post_id: int) -> dict[str, Any]:
         "china": dict(china) if china else None,
         "sentiment": dict(sentiment) if sentiment else None,
         "market_signals": rows_to_dicts(signals),
+    }
+
+
+def api_post_source(settings: Settings, post_id: int) -> dict[str, Any]:
+    with connect(settings.paths.database) as conn:
+        post = conn.execute("SELECT file_path FROM posts WHERE id = ?", (post_id,)).fetchone()
+    if not post or not post["file_path"]:
+        return {"error": "Post source not found"}
+    source_path = Path(post["file_path"])
+    if not source_path.is_file():
+        return {"error": "Post source file not found"}
+    return {
+        "file_path": str(source_path),
+        "content": source_path.read_text(encoding="utf-8", errors="replace"),
     }
 
 

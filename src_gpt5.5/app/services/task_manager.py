@@ -37,6 +37,7 @@ class TaskManager:
             "crawl": self._task_crawl,
             "import": self._task_import,
             "analyze": self._task_analyze,
+            "reanalyze": self._task_reanalyze,
             "market_sync": self._task_market_sync,
             "backtest": self._task_backtest,
             "predict": self._task_predict,
@@ -185,7 +186,7 @@ class TaskManager:
             )
             analyze_started = time.perf_counter()
             self.log(conn, task_id, "INFO", "开始增量分析未分析贴文")
-            analysis_result = analyze_all_posts(conn, only_missing=True)
+            analysis_result = analyze_all_posts(conn, only_missing=True, settings=self.settings)
             analysis_seconds = round(time.perf_counter() - analyze_started, 3)
             self.log(conn, task_id, "INFO", f"分析阶段结束：分析 {analysis_result['analyzed']} 条，耗时 {analysis_seconds}s")
             result["import"] = import_result
@@ -222,9 +223,17 @@ class TaskManager:
         only_missing = bool(params.get("only_missing", True))
         started = time.perf_counter()
         self.log(conn, task_id, "INFO", f"开始分析贴文，only_missing={only_missing}")
-        result = analyze_all_posts(conn, only_missing=only_missing)
+        result = analyze_all_posts(conn, only_missing=only_missing, settings=self.settings)
         result["seconds"] = round(time.perf_counter() - started, 3)
         self.log(conn, task_id, "INFO", f"分析完成：分析 {result['analyzed']} 条，耗时 {result['seconds']}s")
+        return result
+
+    def _task_reanalyze(self, conn: sqlite3.Connection, task_id: int, params: dict[str, Any]) -> dict[str, Any]:
+        started = time.perf_counter()
+        self.log(conn, task_id, "INFO", "开始重分析已有贴文，覆盖旧分析结果")
+        result = analyze_all_posts(conn, only_missing=False, settings=self.settings)
+        result["seconds"] = round(time.perf_counter() - started, 3)
+        self.log(conn, task_id, "INFO", f"重分析完成：分析 {result['analyzed']} 条，耗时 {result['seconds']}s")
         return result
 
     def _task_market_sync(self, conn: sqlite3.Connection, task_id: int, params: dict[str, Any]) -> dict[str, Any]:

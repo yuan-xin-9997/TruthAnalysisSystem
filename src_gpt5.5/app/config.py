@@ -22,7 +22,7 @@ class AppConfig:
 class PathConfig:
     content_root: Path = WORKSPACE_ROOT
     database: Path = SRC_ROOT / "data" / "app.sqlite3"
-    logs: Path = SRC_ROOT / "data" / "logs"
+    logs: Path = SRC_ROOT / "logs"
     exports: Path = SRC_ROOT / "data" / "exports"
     password_file: Path = SRC_ROOT / "data" / "password.txt"
 
@@ -30,7 +30,7 @@ class PathConfig:
 @dataclass
 class CrawlerConfig:
     enabled: bool = True
-    progress_file: str = "已抓取.md"
+    progress_file: str = "data/已抓取.md"
     base_url: str = "https://trumpstruth.org/statuses"
     batch_size: int = 100
     daily_time: str = "06:30"
@@ -48,6 +48,14 @@ class AnalysisConfig:
     openai_model: str = "gpt-5.5"
     prompt_version: str = "v1"
     cache_llm_results: bool = True
+    china_relevance_min_keyword_hits: int = 1
+    china_relevance_min_score: float = 0.22
+    china_relevance_keywords: list[str] = field(
+        default_factory=lambda: ["china", "chinese", "ccp", "beijing", "xi", "taiwan", "hong kong"]
+    )
+    china_relevance_excluded_keywords: list[str] = field(
+        default_factory=lambda: ["tariff", "tiktok", "trade war", "communist", "communists"]
+    )
 
 
 @dataclass

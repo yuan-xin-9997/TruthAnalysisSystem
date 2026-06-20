@@ -81,6 +81,14 @@ MARKET_KEYWORDS = {
 }
 
 
+def _compile_whole_word_pattern(keyword: str) -> re.Pattern[str]:
+    parts = [re.escape(part) for part in keyword.lower().split()]
+    if not parts:
+        return re.compile(r"(?!x)x")
+    body = r"\s+".join(parts)
+    return re.compile(rf"(?<![A-Za-z0-9]){body}(?![A-Za-z0-9])", re.IGNORECASE)
+
+
 def tokenize(text: str) -> list[str]:
     text = URL_RE.sub(" ", text or "")
     return [
@@ -90,7 +98,7 @@ def tokenize(text: str) -> list[str]:
     ]
 
 
-def analyze_all_posts(conn: sqlite3.Connection, only_missing: bool = True) -> dict[str, Any]:
+def analyze_all_posts(conn: sqlite3.Connection, only_missing: bool = True, settings: Any | None = None) -> dict[str, Any]:
     if only_missing:
         rows = conn.execute(
             """
@@ -104,13 +112,13 @@ def analyze_all_posts(conn: sqlite3.Connection, only_missing: bool = True) -> di
         rows = conn.execute("SELECT * FROM posts ORDER BY published_at_utc").fetchall()
     analyzed = 0
     for row in rows:
-        analyze_post(conn, dict(row))
+        analyze_post(conn, dict(row), settings)
         analyzed += 1
     conn.commit()
     return {"analyzed": analyzed}
 
 
-def analyze_post(conn: sqlite3.Connection, post: dict[str, Any]) -> None:
+def analyze_post(conn: sqlite3.Connection, post: dict[str, Any], settings: Any | None = None) -> None:
     post_id = int(post["id"])
     content_text = post.get("content_clean") or ""
     context_text = f"{post.get('title') or ''} {content_text}"
@@ -141,7 +149,14 @@ def analyze_post(conn: sqlite3.Connection, post: dict[str, Any]) -> None:
             (post_id, topic, confidence, reason),
         )
 
-    china = detect_china_relevance(context_text)
+    analysis_cfg = getattr(settings, "analysis", None)
+    china = detect_china_relevance(
+        context_text,
+        min_keyword_hits=getattr(analysis_cfg, "china_relevance_min_keyword_hits", 1),
+        min_score=getattr(analysis_cfg, "china_relevance_min_score", 0.22),
+        keywords=getattr(analysis_cfg, "china_relevance_keywords", None),
+        excluded_keywords=getattr(analysis_cfg, "china_relevance_excluded_keywords", None),
+    )
     conn.execute(
         """
         INSERT OR REPLACE INTO post_china_relevance
@@ -213,15 +228,29 @@ def detect_topics(text: str) -> list[tuple[str, float, str]]:
     return topics
 
 
-def detect_china_relevance(text: str) -> dict[str, Any]:
-    low = text.lower()
-    matched = sorted([key for key in CHINA_KEYWORDS if key in low])
+def detect_china_relevance(
+    text: str,
+    min_keyword_hits: int = 1,
+    min_score: float = 0.22,
+    keywords: list[str] | None = None,
+    excluded_keywords: list[str] | None = None,
+) -> dict[str, Any]:
+    keyword_pool = [key.lower() for key in (keywords or sorted(CHINA_KEYWORDS))]
+    excluded_pool = {key.lower() for key in (excluded_keywords or [])}
+    matched: list[str] = []
+    for keyword in keyword_pool:
+        if keyword in excluded_pool:
+            continue
+        if _compile_whole_word_pattern(keyword).search(text):
+            matched.append(keyword)
+    matched.sort()
     score = min(1.0, len(matched) * 0.22)
+    is_related = len(matched) >= max(1, int(min_keyword_hits)) and score >= float(min_score)
     return {
-        "is_related": score >= 0.22,
+        "is_related": is_related,
         "score": score,
         "matched_keywords": matched,
-        "reason": "命中中国相关关键词" if matched else "未命中中国相关关键词",
+        "reason": "命中中国相关关键词" if is_related else ("命中关键词但未达到阈值" if matched else "未命中中国相关关键词"),
     }
 
 

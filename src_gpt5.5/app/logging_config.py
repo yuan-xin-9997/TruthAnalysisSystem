@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
+from datetime import timezone, timedelta
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 
@@ -20,13 +21,25 @@ LEVEL_BY_NAME: dict[str, int] = {
 }
 
 _configured = False
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+
+class BeijingFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):  # noqa: N802
+        from datetime import datetime
+
+        dt = datetime.fromtimestamp(record.created, tz=BEIJING_TZ)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat(timespec="seconds")
 
 
 def setup_logging(logs_dir: Path, level: int = logging.INFO) -> Path:
     """Configure the root logger with a rotating file handler + stdout.
 
-    Writes to ``<logs_dir>/app.log`` (5 MB × 5 backups) and also echoes to
-    stdout so foreground runs and service-script redirection still work.
+    Writes to ``<logs_dir>/app.log`` and rotates it daily at midnight Beijing
+    time, keeping the most recent 30 rotated files. Also echoes to stdout so
+    foreground runs and service-script redirection still work.
     Safe to call once; subsequent calls are no-ops.
     """
 
@@ -40,14 +53,17 @@ def setup_logging(logs_dir: Path, level: int = logging.INFO) -> Path:
         return log_file
     root.setLevel(level)
 
-    formatter = logging.Formatter(LOG_FORMAT, DATE_FORMAT)
+    formatter = BeijingFormatter(LOG_FORMAT, DATE_FORMAT)
 
-    file_handler = RotatingFileHandler(
+    file_handler = TimedRotatingFileHandler(
         log_file,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=5,
+        when="midnight",
+        interval=1,
+        backupCount=30,
         encoding="utf-8",
+        utc=False,
     )
+    file_handler.suffix = "%Y-%m-%d"
     file_handler.setFormatter(formatter)
     file_handler.setLevel(level)
     root.addHandler(file_handler)
