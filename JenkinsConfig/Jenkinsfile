@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    triggers {
+        pollSCM('H/3 * * * *')
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        DEPLOY_DIR = '/opt/TruthAnalysisSystem'
+        APP_DIR = "${env.DEPLOY_DIR}/src_gpt5.5"
+        RESTART_SCRIPT = "${env.APP_DIR}/start.sh"
+        STOP_SCRIPT = "${env.APP_DIR}/stop.sh"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    set -euo pipefail
+                    mkdir -p "$DEPLOY_DIR"
+                    rsync -a --delete \
+                      --exclude .git \
+                      --exclude .github \
+                      --exclude .idea \
+                      --exclude .obsidian \
+                      --exclude __pycache__ \
+                      --exclude '*.db' \
+                      --exclude 'src_gpt5.5/logs/' \
+                      --exclude 'src_gpt5.5/data/app.sqlite3' \
+                      --exclude 'src_gpt5.5/data/app.sqlite3-shm' \
+                      --exclude 'src_gpt5.5/data/app.sqlite3-wal' \
+                      ./ "$DEPLOY_DIR"/
+                '''
+            }
+        }
+
+        stage('Restart Service') {
+            steps {
+                sh '''
+                    set -euo pipefail
+                    if [ -x "$STOP_SCRIPT" ]; then
+                      "$STOP_SCRIPT" || true
+                    fi
+                    if [ -x "$RESTART_SCRIPT" ]; then
+                      "$RESTART_SCRIPT"
+                    else
+                      echo "Missing start.sh at $RESTART_SCRIPT"
+                      exit 1
+                    fi
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment and restart completed successfully.'
+        }
+        failure {
+            echo 'Deployment failed. Please check the Jenkins console output.'
+        }
+    }
+}
