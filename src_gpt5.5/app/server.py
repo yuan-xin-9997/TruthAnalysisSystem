@@ -149,7 +149,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/notification/test-email":
                 if not self._enforce_page(user, "tasks"):
                     return
-                self._json(send_test_email(self.context.settings))
+                try:
+                    self._json(send_test_email(self.context.settings))
+                except Exception as exc:  # noqa: BLE001
+                    access_logger.exception("Test email failed")
+                    self._json(
+                        {
+                            "error": str(exc),
+                            "error_type": type(exc).__name__,
+                        },
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                    )
             elif parsed.path == "/api/analysis/summary":
                 if not self._enforce_page(user, "analysis"):
                     return

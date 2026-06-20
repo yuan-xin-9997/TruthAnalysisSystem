@@ -685,7 +685,7 @@ async function renderSettings() {
       const data = await api("/api/notification/test-email", { method: "POST", body: JSON.stringify({}) });
       alert(data.sent ? `测试邮件已发送：${data.subject || ""}` : `未发送：${data.reason || "unknown"}`);
     } catch (error) {
-      alert(error.message);
+      alert(`测试邮件失败：${error.message}`);
     }
   }
 
