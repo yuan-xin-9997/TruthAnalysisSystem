@@ -184,6 +184,8 @@ def crawl_new_statuses(
         "saved": saved,
         "missing": missing,
         "failed": failed,
+        "range_start": range_start,
+        "range_end": range_end,
         "max_success": max_success,
         "seconds": total_seconds,
         "avg_seconds_per_checked": round(total_seconds / checked, 3) if checked else 0,

@@ -75,6 +75,21 @@ class SchedulerConfig:
 
 
 @dataclass
+class NotificationConfig:
+    enabled: bool = False
+    send_after_daily_crawl: bool = False
+    min_china_related_count: int = 1
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    sender: str = ""
+    recipient: str = ""
+    subject_prefix: str = "[特朗普真实社交]"
+
+
+@dataclass
 class Settings:
     app: AppConfig = field(default_factory=AppConfig)
     paths: PathConfig = field(default_factory=PathConfig)
@@ -82,6 +97,7 @@ class Settings:
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     market: MarketConfig = field(default_factory=MarketConfig)
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
+    notification: NotificationConfig = field(default_factory=NotificationConfig)
 
 
 def _merge_dataclass(obj: Any, values: dict[str, Any]) -> None:
@@ -139,4 +155,5 @@ def public_settings(settings: Settings) -> dict[str, Any]:
         },
         "market": settings.market.__dict__,
         "scheduler": settings.scheduler.__dict__,
+        "notification": settings.notification.__dict__,
     }

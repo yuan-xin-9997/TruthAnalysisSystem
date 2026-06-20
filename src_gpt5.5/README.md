@@ -61,6 +61,7 @@
 - `market.daily_sync_time`：每日行情同步时间
 - `scheduler.enabled`：是否启用调度器
 - `scheduler.run_on_startup`：启动后是否自动跑一次每日链路
+- `notification`：每日抓取后的邮件推送
 
 ### 中国相关性配置
 
@@ -289,6 +290,28 @@ Web 页面里的“任务中心”可手工触发：
 
 - 每日抓取：`crawler.daily_time`
 - 每日行情同步：`market.daily_sync_time`
+
+如果你想在每日抓取后自动发邮件，把 `notification` 打开即可：
+
+```json
+{
+  "notification": {
+    "enabled": true,
+    "send_after_daily_crawl": true,
+    "min_china_related_count": 1,
+    "smtp_host": "smtp.example.com",
+    "smtp_port": 587,
+    "smtp_username": "user@example.com",
+    "smtp_password": "授权码或密码",
+    "smtp_use_tls": true,
+    "sender": "user@example.com",
+    "recipient": "your@email.com",
+    "subject_prefix": "[特朗普真实社交]"
+  }
+}
+```
+
+邮件只会在每日定时抓取结束后发送，正文会包含命中的中国相关贴文的完整正文内容、标题、时间、命中关键词和链接。
 
 注意：
 

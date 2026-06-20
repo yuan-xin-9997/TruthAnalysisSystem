@@ -55,5 +55,18 @@
   "scheduler": {
     "enabled": true,
     "run_on_startup": false
+  },
+  "notification": {
+    "enabled": false,
+    "send_after_daily_crawl": false,
+    "min_china_related_count": 1,
+    "smtp_host": "",
+    "smtp_port": 587,
+    "smtp_username": "",
+    "smtp_password": "",
+    "smtp_use_tls": true,
+    "sender": "",
+    "recipient": "",
+    "subject_prefix": "[特朗普真实社交]"
   }
 }

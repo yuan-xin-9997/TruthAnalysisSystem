@@ -13,6 +13,7 @@ from app.config import SRC_ROOT, Settings
 from app.db import connect
 from app.logging_config import level_for
 from app.services.crawler_service import crawl_new_statuses
+from app.services.notification_service import send_china_related_email
 from app.services.market_data_service import (
     ensure_symbols,
     generate_predictions,
@@ -193,6 +194,9 @@ class TaskManager:
             result["analysis"] = analysis_result
             result["import_seconds"] = import_seconds
             result["analysis_seconds"] = analysis_seconds
+            notification_result = self._maybe_send_daily_notification(conn, task_id, result)
+            if notification_result:
+                result["notification"] = notification_result
         result["total_seconds"] = round(time.perf_counter() - task_started, 3)
         self.log(conn, task_id, "INFO", f"抓取任务总耗时 {result['total_seconds']}s")
         return result
@@ -218,6 +222,41 @@ class TaskManager:
             ),
         )
         return result
+
+    def _maybe_send_daily_notification(self, conn: sqlite3.Connection, task_id: int, crawl_result: dict[str, Any]) -> dict[str, Any] | None:
+        if not getattr(self.settings.notification, "enabled", False):
+            return None
+        if not getattr(self.settings.notification, "send_after_daily_crawl", False):
+            return None
+        max_success = int(crawl_result.get("max_success") or 0)
+        saved = int(crawl_result.get("saved") or 0)
+        range_start = int(crawl_result.get("range_start") or 0)
+        if max_success <= 0 or saved <= 0 or range_start <= 0:
+            return None
+        rows = conn.execute(
+            """
+            SELECT
+              p.id, p.title, p.content_clean, p.published_date, p.published_at_utc,
+              p.file_path, p.source_url, p.original_url,
+              c.score, c.matched_keywords, c.reason, p.source_status_id
+            FROM posts p
+            JOIN post_china_relevance c ON c.post_id = p.id
+            WHERE c.is_related = 1 AND p.source_status_id BETWEEN ? AND ?
+            ORDER BY p.source_status_id ASC
+            """,
+            (range_start, max_success),
+        ).fetchall()
+        posts = [dict(row) for row in rows]
+        if len(posts) < max(1, int(self.settings.notification.min_china_related_count)):
+            self.log(conn, task_id, "INFO", f"中国相关命中 {len(posts)} 条，低于通知阈值，跳过邮件发送")
+            return {"sent": False, "count": len(posts), "reason": "below threshold"}
+        try:
+            result = send_china_related_email(self.settings, posts, crawl_result)
+            self.log(conn, task_id, "INFO", f"通知邮件发送结果：{result}")
+            return result
+        except Exception as exc:  # noqa: BLE001
+            self.log(conn, task_id, "ERROR", f"通知邮件发送失败：{exc}")
+            return {"sent": False, "error": str(exc)}
 
     def _task_analyze(self, conn: sqlite3.Connection, task_id: int, params: dict[str, Any]) -> dict[str, Any]:
         only_missing = bool(params.get("only_missing", True))
