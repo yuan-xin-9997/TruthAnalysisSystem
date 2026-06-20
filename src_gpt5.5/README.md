@@ -322,6 +322,7 @@ POST /api/notification/test-email
 ```
 
 成功后会向 `notification.recipient` 发送一封测试邮件。
+任务中心也提供了一个“测试邮件”按钮，可以直接点击触发。
 
 注意：
 

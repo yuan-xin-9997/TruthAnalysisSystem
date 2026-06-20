@@ -620,6 +620,7 @@ async function renderTasks() {
       <button onclick="triggerTask('market-sync')">同步行情</button>
       <button onclick="triggerTask('backtest')">回测</button>
       <button onclick="triggerTask('predict')">预测</button>
+      <button onclick="sendTestEmail()">测试邮件</button>
     </div>
     <section class="panel">
       <div class="panel-header"><h2>任务列表</h2><span class="muted">点击任务查看日志</span></div>
@@ -668,16 +669,25 @@ async function renderSettings() {
   `;
 }
 
-async function triggerTask(name) {
-  const endpoint = `/api/tasks/${name}`;
-  try {
-    const data = await api(endpoint, { method: "POST", body: JSON.stringify({}) });
-    alert(`任务已创建：#${data.task_id}`);
-    if (state.route === "tasks" || state.route === "dashboard") render();
-  } catch (error) {
-    alert(error.message);
+  async function triggerTask(name) {
+    const endpoint = `/api/tasks/${name}`;
+    try {
+      const data = await api(endpoint, { method: "POST", body: JSON.stringify({}) });
+      alert(`任务已创建：#${data.task_id}`);
+      if (state.route === "tasks" || state.route === "dashboard") render();
+    } catch (error) {
+      alert(error.message);
+    }
   }
-}
+
+  async function sendTestEmail() {
+    try {
+      const data = await api("/api/notification/test-email", { method: "POST", body: JSON.stringify({}) });
+      alert(data.sent ? `测试邮件已发送：${data.subject || ""}` : `未发送：${data.reason || "unknown"}`);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
 
 function metric(label, value) {
   return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? "-")}</strong></div>`;
