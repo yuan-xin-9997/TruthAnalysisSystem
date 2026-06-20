@@ -24,12 +24,7 @@ def send_china_related_email(settings: Settings, posts: list[dict[str, Any]], ta
     msg["To"] = cfg.recipient
     msg.set_content(body)
 
-    with smtplib.SMTP(cfg.smtp_host, int(cfg.smtp_port), timeout=20) as smtp:
-        if cfg.smtp_use_tls:
-            smtp.starttls()
-        if cfg.smtp_username:
-            smtp.login(cfg.smtp_username, cfg.smtp_password)
-        smtp.send_message(msg)
+    _send_via_smtp(cfg, msg)
 
     return {"sent": True, "count": len(posts), "subject": subject}
 
@@ -54,14 +49,25 @@ def send_test_email(settings: Settings) -> dict[str, Any]:
     msg["To"] = cfg.recipient
     msg.set_content(body)
 
-    with smtplib.SMTP(cfg.smtp_host, int(cfg.smtp_port), timeout=20) as smtp:
+    _send_via_smtp(cfg, msg)
+
+    return {"sent": True, "subject": subject}
+
+
+def _send_via_smtp(cfg: Any, msg: EmailMessage) -> None:
+    port = int(cfg.smtp_port)
+    if port == 465:
+        with smtplib.SMTP_SSL(cfg.smtp_host, port, timeout=20) as smtp:
+            if cfg.smtp_username:
+                smtp.login(cfg.smtp_username, cfg.smtp_password)
+            smtp.send_message(msg)
+        return
+    with smtplib.SMTP(cfg.smtp_host, port, timeout=20) as smtp:
         if cfg.smtp_use_tls:
             smtp.starttls()
         if cfg.smtp_username:
             smtp.login(cfg.smtp_username, cfg.smtp_password)
         smtp.send_message(msg)
-
-    return {"sent": True, "subject": subject}
 
 
 def _build_body(posts: list[dict[str, Any]], task_summary: dict[str, Any]) -> str:

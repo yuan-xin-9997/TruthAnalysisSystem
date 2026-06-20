@@ -85,7 +85,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
         except Exception as exc:  # noqa: BLE001
-            self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            try:
+                self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            except BrokenPipeError:
+                access_logger.warning("Client disconnected while sending error response for %s", parsed.path)
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
@@ -154,7 +157,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
         except Exception as exc:  # noqa: BLE001
-            self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            try:
+                self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            except BrokenPipeError:
+                access_logger.warning("Client disconnected while sending error response for %s", path)
 
     def log_message(self, fmt: str, *args: Any) -> None:
         access_logger.info("%s - %s", self.address_string(), fmt % args)
