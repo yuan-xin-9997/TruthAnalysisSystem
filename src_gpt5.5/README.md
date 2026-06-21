@@ -351,6 +351,8 @@ POST /api/notification/test-email
 src_gpt5.5/logs/app.log
 ```
 
+`app.log` 每天按北京时间切割，历史文件命名为 `app-YYYY-MM-DD.log`，默认保留最近 30 份。当前日志和历史日志均被 Git 忽略。
+
 它会按天切分，文件名会带日期后缀，例如：
 
 ```text

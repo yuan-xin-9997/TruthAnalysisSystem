@@ -57,6 +57,8 @@ cover/
 
 # Django stuff:
 *.log
+# Legacy Python TimedRotatingFileHandler names, such as app.log.2026-06-20.
+*.log.*
 local_settings.py
 db.sqlite3
 db.sqlite3-journal

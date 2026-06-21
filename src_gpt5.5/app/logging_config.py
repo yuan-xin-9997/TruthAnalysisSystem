@@ -34,6 +34,16 @@ class BeijingFormatter(logging.Formatter):
         return dt.isoformat(timespec="seconds")
 
 
+def _dated_log_name(default_name: str) -> str:
+    """Convert ``app.log.YYYY-MM-DD`` to ``app-YYYY-MM-DD.log``."""
+    path = Path(default_name)
+    marker = ".log."
+    if marker not in path.name:
+        return default_name
+    stem, date_suffix = path.name.rsplit(marker, 1)
+    return str(path.with_name(f"{stem}-{date_suffix}.log"))
+
+
 def setup_logging(logs_dir: Path, level: int = logging.INFO) -> Path:
     """Configure the root logger with a rotating file handler + stdout.
 
@@ -64,6 +74,7 @@ def setup_logging(logs_dir: Path, level: int = logging.INFO) -> Path:
         utc=False,
     )
     file_handler.suffix = "%Y-%m-%d"
+    file_handler.namer = _dated_log_name
     file_handler.setFormatter(formatter)
     file_handler.setLevel(level)
     root.addHandler(file_handler)
