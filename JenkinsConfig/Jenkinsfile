@@ -45,13 +45,9 @@ pipeline {
                     rsync -a --delete \
                         --exclude='.git/' \
                         --exclude='.env' \
-                        --exclude='src_gpt5.5/config/app.json' \
                         --exclude='src_gpt5.5/data/' \
                         --exclude='src_gpt5.5/logs/' \
                         "$WORKSPACE/" "$DEPLOY_DIR/"
-                    if [ ! -f "$APP_DIR/config/app.json" ]; then
-                        cp "$WORKSPACE/src_gpt5.5/config/app.json" "$APP_DIR/config/app.json"
-                    fi
                 '''
             }
         }

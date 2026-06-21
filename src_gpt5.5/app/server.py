@@ -16,7 +16,7 @@ from app.config import SRC_ROOT, Settings, public_settings
 from app.db import connect, rows_to_dicts
 from app.services import auth_service
 from app.services.auth_service import ALL_PAGES, CurrentUser
-from app.services.crawler_service import read_progress
+from app.services.crawler_service import read_progress, resolve_progress_path
 from app.services.llm_analyzer import OpenAIAnalyzer
 from app.services.notification_service import send_test_email
 from app.services.task_manager import TaskManager
@@ -880,7 +880,7 @@ def api_task_logs(settings: Settings, task_id: int) -> dict[str, Any]:
 
 
 def api_crawler_status(settings: Settings) -> dict[str, Any]:
-    progress_path = settings.paths.content_root / settings.crawler.progress_file
+    progress_path = resolve_progress_path(settings)
     current_progress = read_progress(progress_path)
     with connect(settings.paths.database) as conn:
         last_crawl = conn.execute(
