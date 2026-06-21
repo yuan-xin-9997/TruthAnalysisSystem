@@ -50,7 +50,7 @@ def crawl_new_statuses(
     translate_to_chinese_enabled: bool | None = None,
     log: CrawlLog | None = None,
 ) -> dict[str, Any]:
-    progress_path = settings.paths.content_root / settings.crawler.progress_file
+    progress_path = resolve_progress_path(settings)
     current = start_after if start_after is not None else read_progress(progress_path)
     batch = batch_size or settings.crawler.batch_size
     request_delay = max(0.0, float(getattr(settings.crawler, "request_delay_seconds", 0.1) or 0))
@@ -164,6 +164,7 @@ def crawl_new_statuses(
                 )
 
     if max_success > current:
+        progress_path.parent.mkdir(parents=True, exist_ok=True)
         progress_path.write_text(str(max_success), encoding="utf-8")
         _log(log, "INFO", f"已更新进度文件 {progress_path} -> {max_success}")
     else:
@@ -196,6 +197,22 @@ def crawl_new_statuses(
         "files": files,
         "errors": errors[:50],
     }
+
+
+def resolve_progress_path(settings: Settings) -> Path:
+    """Resolve crawler progress files inside the application's data directory.
+
+    Older configurations use ``data/已抓取.md`` while newer configurations may
+    use only ``已抓取.md``. Both forms point to ``settings.paths.database.parent``.
+    Absolute paths remain supported for explicit overrides.
+    """
+    configured = Path(settings.crawler.progress_file)
+    if configured.is_absolute():
+        return configured
+    parts = configured.parts
+    if parts and parts[0].lower() == "data":
+        configured = Path(*parts[1:])
+    return settings.paths.database.parent / configured
 
 
 def read_progress(path: Path) -> int:

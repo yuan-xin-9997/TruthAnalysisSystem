@@ -12,7 +12,7 @@
     "progress_file": "data/已抓取.md",
     "base_url": "https://trumpstruth.org/statuses",
     "batch_size": 100,
-    "daily_time": "08:30",
+    "daily_time": "06:30",
     "request_timeout_seconds": 20,
     "request_delay_seconds": 0.1,
     "max_workers": 4,

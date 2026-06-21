@@ -51,7 +51,7 @@
 - `app.port`：监听端口
 - `app.timezone`：时区
 - `paths.content_root`：贴文 Markdown 的根目录
-- `crawler.progress_file`：已抓取进度文件，默认在 `data/已抓取.md`
+- `crawler.progress_file`：已抓取进度文件，相对于应用数据目录解析；默认保存为 `src_gpt5.5/data/已抓取.md`
 - `crawler.daily_time`：每日抓取时间
 - `crawler.download_attachments`：是否下载附件
 - `crawler.translate_to_chinese`：是否生成中文翻译
