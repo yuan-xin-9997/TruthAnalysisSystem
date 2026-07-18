@@ -623,13 +623,13 @@ async function renderTasks() {
       <div class="panel-header"><h2>任务列表</h2><span class="muted">点击任务查看日志</span></div>
       <div class="panel-body">${tasksTable(tasks.items)}</div>
     </section>
-    <section class="panel">
-      <div class="panel-header"><h2>任务日志</h2></div>
-      <div class="panel-body" id="task-log"><span class="muted">选择任务查看日志。</span></div>
-    </section>
+    <dialog id="task-detail-dialog" class="task-detail-dialog">
+      <form method="dialog"><button class="task-detail-close" aria-label="关闭任务详情">关闭</button></form>
+      <div id="task-log"><span class="muted">正在加载任务详情...</span></div>
+    </dialog>
   `;
   if (state.selectedTaskId) {
-    loadTaskLog(state.selectedTaskId);
+    loadTaskLog(state.selectedTaskId, true);
   }
 }
 
@@ -639,7 +639,7 @@ function openTask(id) {
   else navigate("tasks");
 }
 
-async function loadTaskLog(id, reveal = false) {
+async function loadTaskLog(id, showDialog = false) {
   stopTaskLogRefresh();
   state.selectedTaskId = String(id);
   document.querySelectorAll("[data-task-id]").forEach((row) => {
@@ -649,7 +649,8 @@ async function loadTaskLog(id, reveal = false) {
   const target = document.querySelector("#task-log");
   if (!target) return;
   target.innerHTML = renderTaskLog(data.task, data.items || []);
-  if (reveal) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  const dialog = document.querySelector("#task-detail-dialog");
+  if (showDialog && dialog && !dialog.open) dialog.showModal();
   document.querySelector("#task-log-refresh-now")?.addEventListener("click", () => loadTaskLog(id));
   if (data.task?.status === "running") {
     state.taskLogRefresh = setTimeout(() => loadTaskLog(id), 3000);
