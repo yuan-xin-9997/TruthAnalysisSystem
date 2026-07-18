@@ -580,9 +580,6 @@ async function renderCrawler() {
     document.querySelector("#crawl_start_after").value = status.current_progress;
     document.querySelector("#crawl_batch_size").value = status.default_batch_size;
   });
-  document.querySelectorAll("[data-task-id]").forEach((row) => {
-    row.addEventListener("click", () => navigate("tasks"));
-  });
 }
 
 async function renderMarket() {
@@ -631,15 +628,18 @@ async function renderTasks() {
       <div class="panel-body" id="task-log"><span class="muted">选择任务查看日志。</span></div>
     </section>
   `;
-  document.querySelectorAll("[data-task-id]").forEach((row) => {
-    row.addEventListener("click", () => loadTaskLog(row.dataset.taskId));
-  });
   if (state.selectedTaskId) {
     loadTaskLog(state.selectedTaskId);
   }
 }
 
-async function loadTaskLog(id) {
+function openTask(id) {
+  state.selectedTaskId = String(id);
+  if (state.route === "tasks") loadTaskLog(id, true);
+  else navigate("tasks");
+}
+
+async function loadTaskLog(id, reveal = false) {
   stopTaskLogRefresh();
   state.selectedTaskId = String(id);
   document.querySelectorAll("[data-task-id]").forEach((row) => {
@@ -649,6 +649,7 @@ async function loadTaskLog(id) {
   const target = document.querySelector("#task-log");
   if (!target) return;
   target.innerHTML = renderTaskLog(data.task, data.items || []);
+  if (reveal) target.scrollIntoView({ behavior: "smooth", block: "start" });
   document.querySelector("#task-log-refresh-now")?.addEventListener("click", () => loadTaskLog(id));
   if (data.task?.status === "running") {
     state.taskLogRefresh = setTimeout(() => loadTaskLog(id), 3000);
@@ -966,7 +967,7 @@ function attachmentTypeFromUrl(url) {
 function tasksTable(items) {
   if (!items?.length) return `<span class="muted">暂无任务</span>`;
   return `<table><thead><tr><th>ID</th><th>类型</th><th>状态</th><th>触发</th><th>开始</th><th>结束</th><th>摘要</th></tr></thead><tbody>${items.map((t) => `
-    <tr class="clickable ${String(t.id) === state.selectedTaskId ? "selected" : ""}" data-task-id="${t.id}">
+    <tr class="clickable ${String(t.id) === state.selectedTaskId ? "selected" : ""}" data-task-id="${t.id}" role="button" tabindex="0" onclick="openTask(${t.id})" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault();openTask(${t.id})}">
       <td>${t.id}</td><td>${escapeHtml(t.task_type)}</td><td>${statusTag(t.status)}</td><td>${escapeHtml(t.trigger_type || "")}</td>
       <td>${escapeHtml(formatBeijingDateTime(t.started_at) || t.started_at || "")}</td>
       <td>${escapeHtml(formatBeijingDateTime(t.finished_at) || t.finished_at || "")}</td>

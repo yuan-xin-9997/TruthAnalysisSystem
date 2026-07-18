@@ -1,73 +1,99 @@
-# Repository Guidelines
+## 架构要求
 
-## Project Structure & Module Organization
+1. 优先基于 Python 语言开发，后端架构使用 Fastapi、前端架构使用 Vue。
+2. 数据库优先使用轻量数据库 SQLite，如果要开发的系统不适合 SQLite，需要给出理由并经过审批才能更换。
+3. 如果涉及到网页抓取，优先使用集中的网页抓取服务，API Key 是966f9d9f573e6efcb889b5fe9bfe48b6c528e4a08ebddc3ffcbd5c49406a9fa9，服务地址：[http://192.168.0.111:33333/](http://192.168.0.111:33333/health/ready)，健康检查http://192.168.0.111:33333/health/ready，接口文档[WebFetch Service - Swagger UI](http://192.168.0.111:33333/docs)，README[web_fetch/README.md at main · yuan-xin-9997/web_fetch · GitHub](https://github.com/yuan-xin-9997/web_fetch/blob/main/README.md)
 
-The runnable application lives in `src_gpt5.5/`. Core Python code is under `src_gpt5.5/app/`: `server.py` exposes HTTP APIs, `main.py` starts the service, `db.py` owns SQLite schema setup, and `config.py` loads runtime settings. Domain logic is in `src_gpt5.5/app/services/`, including crawling, Markdown parsing/import, text analysis, market data, and task scheduling. The local web UI is in `src_gpt5.5/app/web/`, with static assets in `app/web/static/`. Configuration is in `src_gpt5.5/config/app.json`. Runtime files such as SQLite databases, logs, PID files, and exports belong in `src_gpt5.5/data/`. Post Markdown content is stored outside the app code according to `paths.content_root`.
+## 基本模块或功能要求
 
-## Build, Test, and Development Commands
+以下是系统必须包含的基本模块，哪怕用户在需求中没有明确提到。
 
-Run commands from `src_gpt5.5/`.
+1. 登录功能：系统支持不同用户登录，可以登录的用户名和密码维护在 password.txt 中。
+2. 权限管理模块：用于维护可登录本系统的用户信息，包含用户名、角色（管理员、普通用户）、可访问的页面。
+3. 系统配置模块：显示当前系统的配置，包括配置在配置文件中的配置。
+4. 任务中心模块：显示当前系统的任务列表、任务日志、任务状态等
 
-```powershell
-python -m compileall app
-node --check app\web\static\app.js
-.\start_service.cmd
-.\status_service.cmd
-.\stop_service.cmd
+## 代码目录结构要求
+
+项目大体按照如下目录结构开发：
+
+src
+
+├── app # 前后端代码目录
+
+├── config # 配置文件目录
+
+│   └── app.json # 系统主配置文件，JSON 格式
+
+├── data # 数据目录
+
+│   ├── app.sqlite3 # SQLite 数据文件
+
+│   └── password.txt # 用户密码信息
+
+├── JenkinsConfig # 存放 Jenkins 相关文件
+
+│ ├── Jenkinsfile # Jenkins 流水线文件
+
+├── tests # 测试脚本
+
+├── logs # 日志目录
+
+│   ├── app.log # 当天的日志
+
+│   ├── app.xxxx-xx-xx.log # 历史日志，按天自动切割
+
+│   └── server.pid # 当前系统的主进程 PID
+
+├── README.md # 自述文件
+
+├── start.ps1 # Windows 启动系统脚本
+
+├── start.sh # Linux 启动系统脚本
+
+├── status.ps1 # Windows 显示系统状态脚本
+
+├── status.sh # Linux 显示系统状态脚本
+
+├── stop.ps1 # Windows 停止系统脚本
+
+└── stop.sh # Linux 停止系统脚本
+
+## 开发规范
+
+1. 禁止在代码中硬编码任何环境相关信息，比如 IP、端口、用户名、密码、绝对路径等信息。这些必须可配置
+2. 系统显示的时间如果不是北京时间，需要在原始时间的基础上显示北京时间
+3. 若有下载的文件需要按年份/月份/天保存在 data 目录
+4. 项目 .gitignore 文件要包含 logs 目录，但是不能包含 data 目录
+
+## 测试要求
+
+1. 所有功能必须做基本的单元测试、冒烟测试等，测试必须都通过
+
+## 部署要求
+
+1. 首次部署的时候，需要创建 data 目录，并创建 password.txt，添加附件提到的默认内容。后续增量部署则不需要重复创建 data 目录
+2. 在完成自测之后，交付给我之前，需要将项目整合到 Jenkins 中，参照“生成Jenkinsfile的提示词.md”执行部署
+3. 如果部署在Linux系统上，则还需要支持systemd的方式进行系统的启停、状态检查。
+
+## 文档要求
+
+1. README.md 文件需要包含系统介绍、页面介绍、配置文件说明、部署方式、运维方式、访问方式等章节，且需要及时更新
+2. 需求规格说明书、设计说明书需要及时更新
+
+## 需求新增或变更的要求
+
+1. 若用户有需求新增或变更，在开发自测完后，需要根据情况更新需求规格说明书、设计说明书、README.md、Jenkinsfile 等文件
+2. 在提交到 Github 之后，需要手动触发 Jenkins 的手工构建，并让用户访问手工构建之后的服务，以验证新增或变更的功能是否符合预期
+3. 在部署的时候注意不要把 config/app.json 给覆盖了，因为有可能在第一次部署之后 app.json 文件里面的配置被修改了
+
+## 附件
+
+### password.txt 默认内容
+
 ```
-
-`compileall` checks Python syntax. `node --check` validates frontend JavaScript syntax. Use `start_app.cmd` for foreground Windows runs, `start_service.cmd` for background service runs, and the `.sh` scripts for Linux/macOS.
-
-## Coding Style & Naming Conventions
-
-Use Python 3 standard-library patterns already present in the project. Prefer type hints, dataclasses for configuration/data containers, and small service functions. Keep paths platform-neutral with `pathlib.Path`; do not hardcode Windows or Linux absolute paths. JavaScript is plain browser JS, so avoid adding frameworks unless explicitly needed. Use concise names that match existing conventions, such as `api_*` handlers, `*_service.py` modules, and `render*` frontend functions.
-
-## Testing Guidelines
-
-There is no established test framework yet; `tests/` is currently empty. For every change, at minimum run Python compilation and JS syntax checks. For backend behavior, prefer focused script-based checks against service functions or temporary local API calls. Name future tests after the module or behavior, for example `tests/test_crawler_service.py`.
-
-## Commit & Pull Request Guidelines
-
-No Git history is available in this checkout, so use clear imperative commit messages such as `Add crawler progress logging` or `Fix content root path handling`. Pull requests should include a short problem summary, changed files or modules, verification commands, and screenshots for visible UI changes.
-
-## Security & Configuration Tips
-
-Do not commit `.env` files, API keys, SQLite databases, logs, downloaded attachments, or generated exports. Keep `OPENAI_API_KEY` in the environment. Configure Markdown output with `paths.content_root` or `TRUTH_CONTENT_ROOT`; keep runtime data in `src_gpt5.5/data/`.
-
----
-
-# 仓库指南
-
-## 项目结构与模块组织
-
-可运行应用位于 `src_gpt5.5/`。核心 Python 代码在 `src_gpt5.5/app/`：`server.py` 提供 HTTP API，`main.py` 启动服务，`db.py` 负责 SQLite 表结构，`config.py` 加载运行配置。业务逻辑在 `src_gpt5.5/app/services/`，包括抓取、Markdown 解析/导入、文本分析、行情数据和任务调度。本地 Web UI 位于 `src_gpt5.5/app/web/`，静态资源在 `app/web/static/`。配置文件是 `src_gpt5.5/config/app.json`。SQLite、日志、PID、导出文件等运行时数据放在 `src_gpt5.5/data/`。贴文 Markdown 内容根据 `paths.content_root` 保存，不应混入应用代码目录。
-
-## 构建、测试与开发命令
-
-在 `src_gpt5.5/` 下运行：
-
-```powershell
-python -m compileall app
-node --check app\web\static\app.js
-.\start_service.cmd
-.\status_service.cmd
-.\stop_service.cmd
+# 格式: username:password:role  (role 取值: admin | user)
+# admin 默认拥有所有页面权限；user 的可见页面由管理员在权限管理页配置。
+# 修改本文件后，新用户在下次登录时会自动同步到数据库。
+admin:admin123:admin
 ```
-
-`compileall` 检查 Python 语法。`node --check` 检查前端 JavaScript 语法。Windows 前台运行使用 `start_app.cmd`，后台服务使用 `start_service.cmd`，Linux/macOS 使用对应 `.sh` 脚本。
-
-## 代码风格与命名约定
-
-沿用项目现有 Python 3 标准库风格。优先使用类型标注、dataclass 配置/数据结构和小型服务函数。路径处理使用 `pathlib.Path`，不要写死 Windows 或 Linux 绝对路径。前端是原生浏览器 JavaScript，除非明确需要，不要引入框架。命名保持现有习惯，例如 `api_*` 接口函数、`*_service.py` 服务模块和 `render*` 前端渲染函数。
-
-## 测试指南
-
-目前尚未建立正式测试框架，`tests/` 目录为空。每次改动至少运行 Python 编译检查和 JS 语法检查。后端行为建议用聚焦的小脚本或临时本地 API 调用验证。未来测试文件可按模块或行为命名，例如 `tests/test_crawler_service.py`。
-
-## 提交与 Pull Request 指南
-
-当前检出目录没有可参考的 Git 历史，因此建议使用清晰的祈使句提交信息，例如 `Add crawler progress logging` 或 `Fix content root path handling`。PR 应包含问题概述、涉及的文件或模块、验证命令；如果有可见 UI 改动，请附截图。
-
-## 安全与配置建议
-
-不要提交 `.env` 文件、API Key、SQLite 数据库、日志、下载附件或生成的导出文件。`OPENAI_API_KEY` 应放在环境变量中。Markdown 输出目录通过 `paths.content_root` 或 `TRUTH_CONTENT_ROOT` 配置；运行时数据保留在 `src_gpt5.5/data/`。
