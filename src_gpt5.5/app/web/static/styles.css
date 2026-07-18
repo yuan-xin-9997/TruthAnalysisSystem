@@ -476,25 +476,6 @@ tr.selected {
   overflow: auto;
 }
 
-.task-detail-dialog {
-  width: min(900px, calc(100% - 32px));
-  max-height: calc(100vh - 48px);
-  border: 0;
-  border-radius: 10px;
-  padding: 20px;
-  overflow: auto;
-  box-shadow: 0 20px 60px #0005;
-}
-
-.task-detail-dialog::backdrop {
-  background: #16202ccc;
-}
-
-.task-detail-close {
-  float: right;
-  margin: 0 0 12px 12px;
-}
-
 .task-log-head {
   display: flex;
   justify-content: space-between;

@@ -26,6 +26,7 @@ const titles = {
   crawler: ["抓取", "按来源编号扫描 trumpstruth.org，保存 Markdown 并触发导入分析。"],
   market: ["股市分析", "相关性、回测和预测研究。"],
   tasks: ["任务中心", "触发抓取、导入、分析和市场任务。"],
+  taskDetail: ["任务详情", "查看任务状态、参数、摘要和运行日志。"],
   settings: ["系统配置", "检查数据目录、OpenAI Key、监听地址和调度配置。"],
   permissions: ["权限管理", "管理普通用户的页面访问权限。仅管理员可访问。"],
 };
@@ -58,6 +59,7 @@ function navigate(route) {
   if (route !== "tasks") stopTaskLogRefresh();
   state.route = route;
   state.selectedPostId = null;
+  if (window.location.search) window.history.replaceState(null, "", window.location.pathname);
   document.querySelectorAll("nav button").forEach((button) => {
     button.classList.toggle("active", button.dataset.route === route);
   });
@@ -68,7 +70,8 @@ function canAccessRoute(route) {
   if (!state.user) return false;
   if (route === "permissions") return state.user.role === "admin";
   if (state.user.role === "admin") return true;
-  return Array.isArray(state.user.pages) && state.user.pages.includes(route);
+  const permissionRoute = route === "taskDetail" ? "tasks" : route;
+  return Array.isArray(state.user.pages) && state.user.pages.includes(permissionRoute);
 }
 
 function applyNavVisibility() {
@@ -121,6 +124,11 @@ async function bootstrap() {
   }
   renderUserInfo();
   applyNavVisibility();
+  const taskId = new URLSearchParams(window.location.search).get("task_id");
+  if (/^\d+$/.test(taskId || "")) {
+    state.selectedTaskId = taskId;
+    state.route = "taskDetail";
+  }
   const initial = pickInitialRoute();
   if (!initial) {
     app.innerHTML = `<div class="panel"><div class="panel-body muted">当前账号暂未授权访问任何页面，请联系管理员配置权限。</div></div>`;
@@ -164,6 +172,7 @@ async function render() {
     if (state.route === "crawler") await renderCrawler();
     if (state.route === "market") await renderMarket();
     if (state.route === "tasks") await renderTasks();
+    if (state.route === "taskDetail") await renderTaskDetail();
     if (state.route === "settings") await renderSettings();
     if (state.route === "permissions") await renderPermissions();
   } catch (error) {
@@ -623,23 +632,24 @@ async function renderTasks() {
       <div class="panel-header"><h2>任务列表</h2><span class="muted">点击任务查看日志</span></div>
       <div class="panel-body">${tasksTable(tasks.items)}</div>
     </section>
-    <dialog id="task-detail-dialog" class="task-detail-dialog">
-      <form method="dialog"><button class="task-detail-close" aria-label="关闭任务详情">关闭</button></form>
-      <div id="task-log"><span class="muted">正在加载任务详情...</span></div>
-    </dialog>
   `;
-  if (state.selectedTaskId) {
-    loadTaskLog(state.selectedTaskId, true);
-  }
 }
 
 function openTask(id) {
-  state.selectedTaskId = String(id);
-  if (state.route === "tasks") loadTaskLog(id, true);
-  else navigate("tasks");
+  window.location.href = `/?task_id=${encodeURIComponent(id)}`;
 }
 
-async function loadTaskLog(id, showDialog = false) {
+async function renderTaskDetail() {
+  app.innerHTML = `
+    <section class="panel">
+      <div class="panel-header"><h2>任务详情</h2><button onclick="navigate('tasks')">返回任务中心</button></div>
+      <div class="panel-body" id="task-log"><span class="muted">正在加载任务详情...</span></div>
+    </section>
+  `;
+  await loadTaskLog(state.selectedTaskId);
+}
+
+async function loadTaskLog(id) {
   stopTaskLogRefresh();
   state.selectedTaskId = String(id);
   document.querySelectorAll("[data-task-id]").forEach((row) => {
@@ -649,8 +659,6 @@ async function loadTaskLog(id, showDialog = false) {
   const target = document.querySelector("#task-log");
   if (!target) return;
   target.innerHTML = renderTaskLog(data.task, data.items || []);
-  const dialog = document.querySelector("#task-detail-dialog");
-  if (showDialog && dialog && !dialog.open) dialog.showModal();
   document.querySelector("#task-log-refresh-now")?.addEventListener("click", () => loadTaskLog(id));
   if (data.task?.status === "running") {
     state.taskLogRefresh = setTimeout(() => loadTaskLog(id), 3000);
